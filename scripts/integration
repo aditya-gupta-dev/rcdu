@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""CLI/PTY/interoperability tests. Mutations are confined to owned temporary trees."""
+import fcntl
+import hashlib
+import json
+import os
+import pty
+import select
+import signal
+import resource
+import errno
+import struct
+import subprocess
+import tempfile
+import termios
+import time
+from pathlib import Path
+import argparse
+p=argparse.ArgumentParser()
+p.add_argument('--candidate',default='target/debug/rcdu')
+p.add_argument('--baseline',default='target/baseline/ncdu-2.9.2')
+a=p.parse_args()
+exe=str(Path(a.candidate).resolve()); zig=str(Path(a.baseline).resolve())
+
+def run(command, **kwargs):
+    return subprocess.run(command,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30,**kwargs).stdout
+
+def normalize(path):
+    with path.open('rb') as source:
+        return run(['target/debug/examples/normalize'],stdin=source)
+
+def terminal(args, keys=b'q', expected=None, close=False, sig=None, redirected=False, env=None):
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',24,100,0,0))
+    before=termios.tcgetattr(slave)
+    def controlling_tty():
+        os.setsid()
+        fcntl.ioctl(slave, termios.TIOCSCTTY,0)
+    child=subprocess.Popen([exe,'--ignore-config',*map(str,args)],stdin=subprocess.PIPE if redirected else slave,stdout=subprocess.PIPE if redirected else slave,stderr=slave,preexec_fn=controlling_tty,close_fds=True,env=env)
+    screen=b'';deadline=time.monotonic()+10
+    while time.monotonic()<deadline:
+        ready,_,_=select.select([master],[],[],.1)
+        if ready:
+            screen+=os.read(master,65536)
+        if b'Total ' in screen or (expected and expected in screen):
+            break
+        if child.poll() is not None:
+            raise AssertionError(f'early exit {child.returncode}: {screen!r}')
+    assert b'Total ' in screen or expected and expected in screen,screen[-1000:]
+    # Resize before action to exercise clipping and periodic size queries.
+    fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',4,18,0,0))
+    time.sleep(.15)
+    if sig:
+        child.send_signal(sig)
+    elif close:
+        os.close(master); master=None
+    else:
+        for key in keys.split(b'|'):
+            os.write(master,key)
+            time.sleep(.08)
+    child.wait(timeout=10)
+    if not close:
+        after=termios.tcgetattr(slave)
+        assert before==after,'terminal attributes not restored'
+        assert child.returncode==0,(child.returncode,screen[-1000:])
+    os.close(slave)
+    if master is not None: os.close(master)
+
+with tempfile.TemporaryDirectory(prefix='rcdu-integration-') as owned:
+    owned=Path(owned);root=owned/'tree';root.mkdir()
+    for directory in ['a','b','empty']: (root/directory).mkdir()
+    (root/'a'/'file').write_bytes(b'hello')
+    os.link(root/'a'/'file',root/'b'/'link')
+    os.link(root/'a'/'file',owned/'external')
+    raw=os.fsencode(root/'a')+b'/bad\xff\n"\\name'
+    open(raw,'wb').close()
+    os.symlink('a/file',root/'symlink')
+    os.symlink('a',root/'dirlink')
+    source=owned/'zig.json';run([zig,'--ignore-config','-0','-e','-o',str(source),str(root)])
+    gold=normalize(source)
+    for workers in ['1','2','4']:
+        rust_json=owned/f'rust-{workers}.json';rust_bin=owned/f'rust-{workers}.bin';zig_bin=owned/f'zig-{workers}.bin'
+        run([exe,'--ignore-config','-0','-e','-t',workers,'-o',str(rust_json),str(root)])
+        assert normalize(rust_json)==gold,'scan/JSON differential failed'
+        for producer,binary_path in [(exe,rust_bin),(zig,zig_bin)]:
+            run([producer,'--ignore-config','-0','-e','-t',workers,'-O',str(binary_path),'--export-block-size','4',str(root)])
+            for consumer in [exe,zig]:
+                converted=owned/'converted.json';run([consumer,'--ignore-config','-0','-e','-f',str(binary_path),'-o',str(converted)])
+                assert normalize(converted)==gold,f'{producer} binary -> {consumer} failed'
+        for producer in [exe,zig]:
+            compressed=owned/'compressed.json.zst';run([producer,'--ignore-config','-0','-e','-c','-o',str(compressed),str(root)])
+            for consumer in [exe,zig]:
+                converted=owned/'compressed-converted.json';run([consumer,'--ignore-config','-0','-e','-f',str(compressed),'-o',str(converted)])
+                assert normalize(converted)==gold,'compressed interoperability failed'
+    # Explicit optional-statx failure/missing-mask paths, including a non-fallback error.
+    shim=owned/'statx-fallback.so'
+    run(['cc','-shared','-fPIC','-Wall','-Wextra','-Werror','tests/support/statx-fallback.c','-o',str(shim)])
+    for failure in [errno.ENOSYS,errno.EINVAL,errno.EPERM,'partial-mask']:
+        env=os.environ.copy();env['LD_PRELOAD']=str(shim);env['RCDU_TEST_STATX']=str(failure)
+        fallback=owned/'fallback.json'
+        run([exe,'--ignore-config','-0','-e','--metadata-backend','statx','-o',str(fallback),str(root)],env=env)
+        assert normalize(fallback)==gold,f'statx fallback {failure} changed observations'
+    env['RCDU_TEST_STATX']=str(errno.EACCES)
+    assert subprocess.run([exe,'--ignore-config','-0','--metadata-backend','statx','--quit-after-scan',str(root)],env=env,stderr=subprocess.PIPE).returncode != 0
+    # Low descriptor budget exercises suspend/reopen rather than unbounded depth ownership.
+    deep=owned/'deep';deep.mkdir();current=deep
+    for number in range(100): current=current/'d';current.mkdir()
+    (current/'file').write_bytes(b'x')
+    def low_fds(): resource.setrlimit(resource.RLIMIT_NOFILE,(64,64))
+    for threads in ['1','4','12']:
+        run([exe,'--ignore-config','-0','-t',threads,'--quit-after-scan',str(deep)],preexec_fn=low_fds)
+    # Error-bearing observations must agree when running as an unprivileged user.
+    denied=root/'denied';denied.mkdir();(denied/'inside').touch();denied.chmod(0)
+    try:
+        assert os.getuid()!=0,'permission fixtures require an unprivileged user'
+        left=owned/'denied-zig.json';right=owned/'denied-rust.json'
+        for producer,output in [(zig,left),(exe,right)]:
+            run([producer,'--ignore-config','-0','-e','-o',str(output),str(root)])
+        assert normalize(left)==normalize(right),'permission error differential failed'
+    finally: denied.chmod(0o700)
+    # Selected kernel root is scanned even with the kernel-filesystem filter enabled.
+    kernel=Path('/proc/sys/kernel/random')
+    if kernel.is_dir():
+        for producer,output in [(zig,left),(exe,right)]:
+            run([producer,'--ignore-config','-0','--exclude-kernfs','-o',str(output),str(kernel)])
+        assert normalize(left)==normalize(right),'selected kernel root differential failed'
+    # Existing second device, without creating mounts or touching user data.
+    if Path('/dev/shm').is_dir() and os.stat('/dev/shm').st_dev != root.stat().st_dev:
+        with tempfile.TemporaryDirectory(prefix='rcdu-cross-device-',dir='/dev/shm') as second:
+            target=Path(second)/'file';target.write_bytes(b'cross device');os.link(target,Path(second)/'link')
+            os.symlink(target,root/'cross-device')
+            for producer,output in [(zig,left),(exe,right)]:
+                run([producer,'--ignore-config','-0','-L','-x','-o',str(output),str(root)])
+            assert normalize(left)==normalize(right),'cross-device symlink differential failed'
+            (root/'cross-device').unlink()
+    # Config uses isolated XDG path; no edits to the user's configuration.
+    config=owned/'config'/'ncdu';config.mkdir(parents=True);(config/'config').write_bytes(b'\n@--future-value abc\n--threads 2\n--hide-hidden\n')
+    env=os.environ.copy();env['XDG_CONFIG_HOME']=str(config.parent)
+    run([exe,'--quit-after-scan','-0','-t1',str(root)],env=env)
+    terminal([root], b'?|2|3|q|n|l|h|i|q|q')
+    terminal(['-f',owned/'rust-1.bin'], b'n|l|h|q',redirected=True)
+    terminal(['-f',source], b'd| |q|q',redirected=True)
+    terminal([root], sig=signal.SIGTERM)
+    terminal([root],close=True)
+    # Delete a separate disposable target. Default Enter must choose No.
+    trash=owned/'trash';trash.mkdir();(trash/'only-file').write_bytes(b'delete fixture')
+    terminal([trash], b'd|\r|q');assert (trash/'only-file').exists()
+    terminal([trash], b'd|y| |q');assert not (trash/'only-file').exists()
+    (trash/'only-file').write_bytes(b'custom fixture')
+    terminal(['--delete-command','rm --',trash], b'd|y|q');assert not (trash/'only-file').exists()
+    terminal([trash],b'r|q')
+    shell=owned/'shell';result=owned/'shell-result'
+    shell.write_text(f'#!/bin/sh\nprintf "%s\\n%s\\n" "$NCDU_LEVEL" "$PWD" > "{result}"\n')
+    shell.chmod(0o700);env=os.environ.copy();env['NCDU_SHELL']=str(shell);env['NCDU_LEVEL']='3'
+    terminal([trash],b'b|q',env=env)
+    assert result.read_text().splitlines()==['4',str(trash)],'shell environment/cwd failed' 
+print('PASS: bidirectional JSON/zstd/binary; config; navigation/help/details; redirected /dev/tty; resize; SIGTERM; lost tty; conservative/built-in/custom deletion; refresh; shell environment; statx fault fallback; low FD limit; permission and kernel roots; cross-device symlinks')

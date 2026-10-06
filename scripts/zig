@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""Reference builds use the same half-CPU budget; affinity also bounds Zig backend threads."""
+import os
+import sys
+from pathlib import Path
+from cpu_budget import build_jobs
+jobs=build_jobs()
+args=sys.argv[1:]
+if any(arg.startswith('-j') for arg in args):
+    sys.exit('scripts/zig computes -j; remove the override')
+for key in ('NUM_JOBS','CMAKE_BUILD_PARALLEL_LEVEL','RAYON_NUM_THREADS'):
+    os.environ[key]=str(jobs)
+os.environ['MAKEFLAGS']=f'-j{jobs}'
+os.sched_setaffinity(0,set(sorted(os.sched_getaffinity(0))[:jobs]))
+executable=Path(os.environ.get('ZIG',Path(__file__).resolve().parent.parent/'target/tools/zig-x86_64-linux-0.15.2/zig'))
+print(f'zig: {jobs} jobs, affinity bounded to {jobs} CPUs',file=sys.stderr)
+os.execv(str(executable),[str(executable),*args,f'-j{jobs}'])

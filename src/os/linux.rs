@@ -619,3 +619,129 @@ impl Drop for TerminalHandle {
         let _ = self.suspend();
     }
 }
+
+pub fn timestamp(seconds: u64) -> String {
+    let Ok(seconds) = libc::time_t::try_from(seconds) else {
+        return "invalid timestamp".into();
+    };
+    // SAFETY: zeroed tm is valid writable output; localtime_r keeps pointers in caller storage.
+    let mut time: libc::tm = unsafe { std::mem::zeroed() };
+    let mut buffer = [0u8; 80];
+    // SAFETY: seconds/time/buffer all remain valid and aligned for their respective calls.
+    unsafe {
+        if libc::localtime_r(&seconds, &mut time).is_null() {
+            return "invalid timestamp".into();
+        }
+        let length = libc::strftime(
+            buffer.as_mut_ptr().cast(),
+            buffer.len(),
+            c"%Y-%m-%d %H:%M:%S %Z".as_ptr(),
+            &time,
+        );
+        String::from_utf8_lossy(&buffer[..length]).into_owned()
+    }
+}
+pub fn account(id: u32, group: bool) -> String {
+    let mut storage = vec![0u8; 65536];
+    if group {
+        // SAFETY: initialized group and scratch storage outlive the reentrant lookup and name copy.
+        let mut entry: libc::group = unsafe { std::mem::zeroed() };
+        let mut result = std::ptr::null_mut();
+        // SAFETY: all output/scratch pointers are valid and aligned; function retains nothing.
+        if unsafe {
+            libc::getgrgid_r(
+                id,
+                &mut entry,
+                storage.as_mut_ptr().cast(),
+                storage.len(),
+                &mut result,
+            )
+        } == 0
+            && !result.is_null()
+            && !entry.gr_name.is_null()
+        {
+            // SAFETY: successful lookup returns a terminated name backed by live scratch storage.
+            return format!(
+                "{} ({id})",
+                sanitize_account(unsafe { CStr::from_ptr(entry.gr_name) }.to_bytes())
+            );
+        }
+    } else {
+        // SAFETY: initialized passwd and scratch storage outlive lookup/name copy.
+        let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
+        let mut result = std::ptr::null_mut();
+        // SAFETY: valid initialized output/scratch pointers; no retained references.
+        if unsafe {
+            libc::getpwuid_r(
+                id,
+                &mut entry,
+                storage.as_mut_ptr().cast(),
+                storage.len(),
+                &mut result,
+            )
+        } == 0
+            && !result.is_null()
+            && !entry.pw_name.is_null()
+        {
+            // SAFETY: successful lookup returns a terminated name in live scratch storage.
+            return format!(
+                "{} ({id})",
+                sanitize_account(unsafe { CStr::from_ptr(entry.pw_name) }.to_bytes())
+            );
+        }
+    }
+    id.to_string()
+}
+fn sanitize_account(bytes: &[u8]) -> String {
+    crate::ui::display::sanitize(bytes)
+}
+
+/// Reserve standard/output/TTY descriptors and transient open/cache handles before budgeting frames.
+pub fn scan_descriptor_budget(workers: usize) -> io::Result<(usize, usize)> {
+    // SAFETY: initialized rlimit is aligned writable getrlimit output.
+    let mut limits: libc::rlimit = unsafe { std::mem::zeroed() };
+    // SAFETY: valid resource and output pointer, retained for the call only.
+    let available = if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) } == 0 {
+        usize::try_from(limits.rlim_cur)
+            .unwrap_or(usize::MAX)
+            .saturating_sub(16)
+    } else {
+        48
+    };
+    if available < workers.saturating_mul(3) + 1 {
+        return Err(io::Error::other(
+            "scan worker count exceeds the descriptor budget; reduce -t",
+        ));
+    }
+    let queue = 16.min(available - workers * 3).max(1);
+    let retained = ((available - queue) / workers)
+        .saturating_sub(2)
+        .clamp(1, 16);
+    Ok((queue, retained))
+}
+impl Drop for Location {
+    fn drop(&mut self) {
+        let mut parent = self.parent.take();
+        while let Some(node) = parent {
+            if let Ok(mut node) = Arc::try_unwrap(node) {
+                parent = node.parent.take();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+/// Legacy imports may have arbitrary display roots. Filesystem actions require a normalized absolute root.
+pub fn validate_action_root(path: &Path) -> io::Result<()> {
+    if !path.is_absolute()
+        || path_bytes(path)
+            .split(|byte| *byte == b'/')
+            .any(|component| component == b"." || component == b"..")
+    {
+        return Err(invalid(
+            "import root is unsuitable for filesystem actions; use a normalized absolute path",
+        ));
+    }
+    Ok(())
+}

@@ -1,3 +1,6 @@
 /target
 __pycache__/
 /benchmarks/fixtures/
+/reference/**/.zig-cache/
+/reference/**/zig-cache/
+/reference/**/zig-out/

@@ -121,3 +121,24 @@ fn errors_and_exclusions_are_independent_of_field_order() {
         assert_eq!(model.entry(child).kind(), Kind::Pattern);
     }
 }
+
+#[test]
+fn unknown_large_numbers_and_unknown_link_counts_remain_compatible() {
+    let input=b"[1,12,{\"future\":123456789012345678901234567890e+400},[{\"name\":\"/root\"},[{\"name\":\"a\"},{\"name\":\"x\",\"ino\":1,\"hlnkc\":true,\"asize\":7}], [{\"name\":\"b\"},{\"name\":\"y\",\"ino\":1,\"hlnkc\":true,\"asize\":7}]]]";
+    let model = json::read(Cursor::new(input)).unwrap();
+    assert_eq!(model.totals(model.root).shared_apparent, 0);
+    for child in model.children(model.root) {
+        assert_eq!(model.totals(child).shared_apparent, 7);
+    }
+    let mut bytes = Vec::new();
+    binary::write(&model, &mut bytes, 4096, 1, true).unwrap();
+    let mut reader = binary::Reader::open(Cursor::new(bytes)).unwrap();
+    let root = reader.get(reader.root).unwrap();
+    for child in reader.children(&root).unwrap() {
+        assert_eq!(child.totals.shared_apparent, 7);
+    }
+    assert_eq!(
+        reader.import().unwrap().totals(model.root),
+        model.totals(model.root)
+    );
+}

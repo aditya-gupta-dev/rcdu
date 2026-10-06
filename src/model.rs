@@ -289,6 +289,9 @@ impl Model {
     /// Postorder ordinary reduction, then one inode contribution per containing ancestor.
     /// A global first-seen set would incorrectly zero hardlinks in sibling directories.
     pub fn recount(&mut self) {
+        let _ = self.recount_with_cancel(|| false);
+    }
+    pub fn recount_with_cancel(&mut self, mut cancelled: impl FnMut() -> bool) -> io::Result<()> {
         let mut order = Vec::new();
         let mut pending = vec![self.root];
         while let Some(id) = pending.pop() {
@@ -301,6 +304,12 @@ impl Model {
             }
         }
         for id in order.into_iter().rev() {
+            if cancelled() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "accounting cancelled",
+                ));
+            }
             let entry = *self.entry(id);
             let mut totals = Totals {
                 allocated: entry.allocated(),
@@ -342,7 +351,15 @@ impl Model {
         let mut groups: HashMap<InodeKey, Vec<(EntryId, u32)>> = HashMap::new();
         // Walk reachable entries; detached records from a mutation cannot contribute.
         let mut pending = vec![self.root];
+        let mut processed = 0usize;
         while let Some(id) = pending.pop() {
+            processed += 1;
+            if processed % 4096 == 0 && cancelled() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "accounting cancelled",
+                ));
+            }
             let entry = *self.entry(id);
             if entry.kind() == Kind::Directory {
                 pending.extend(self.children(id));
@@ -352,6 +369,12 @@ impl Model {
             }
         }
         for links in groups.values() {
+            if cancelled() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "accounting cancelled",
+                ));
+            }
             let first = links[0];
             let effective = if first.1 == 0 || links.iter().any(|link| link.1 != first.1) {
                 links.len() as u64
@@ -360,7 +383,13 @@ impl Model {
             };
             let entry = *self.entry(first.0);
             let mut counts: HashMap<EntryId, u64> = HashMap::new();
-            for (id, _) in links {
+            for (position, (id, _)) in links.iter().enumerate() {
+                if position % 1024 == 0 && cancelled() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Interrupted,
+                        "hardlink accounting cancelled",
+                    ));
+                }
                 let mut parent = self.entry(*id).parent;
                 while parent != NONE {
                     *counts.entry(parent).or_default() += 1;
@@ -378,6 +407,7 @@ impl Model {
                 }
             }
         }
+        Ok(())
     }
     pub fn len(&self) -> usize {
         self.parts.iter().map(|part| part.entries.len()).sum()

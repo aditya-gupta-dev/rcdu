@@ -159,54 +159,20 @@ impl<W: Write> Writer<W> {
         }
         let current =
             BinaryRef::checked(((self.index.len() as u64) << 24) | self.block.len() as u64)?;
-        self.block.push(0xbf);
-        head(&mut self.block, 0, 0);
-        integer(&mut self.block, stat.kind.wire());
-        head(&mut self.block, 0, 1);
-        head(&mut self.block, 2, name.len() as u64);
-        self.block.extend_from_slice(name);
-        reference_field(&mut self.block, 2, previous, current)?;
-        field(&mut self.block, 3, stat.apparent);
-        field(&mut self.block, 4, stat.blocks.saturating_mul(512));
-        if stat.kind == Kind::Directory || stat.kind == Kind::Hardlink {
-            field(&mut self.block, 5, stat.device);
-        }
-        if read_error || descendant_error {
-            head(&mut self.block, 0, 6);
-            self.block.push(if read_error { 0xf5 } else { 0xf4 });
-        }
-        if stat.kind == Kind::Directory {
-            field(&mut self.block, 7, totals.apparent);
-            field(&mut self.block, 8, totals.allocated);
-            if totals.shared_apparent != 0 {
-                field(&mut self.block, 9, totals.shared_apparent);
-            }
-            if totals.shared_allocated != 0 {
-                field(&mut self.block, 10, totals.shared_allocated);
-            }
-            field(&mut self.block, 11, totals.items);
-            reference_field(&mut self.block, 12, child, current)?;
-        }
-        if stat.kind == Kind::Hardlink {
-            field(&mut self.block, 13, stat.inode);
-            field(&mut self.block, 14, u64::from(stat.links));
-        }
-        if extended {
-            let ext = stat.extended;
-            if ext.present & 2 != 0 {
-                field(&mut self.block, 15, u64::from(ext.uid));
-            }
-            if ext.present & 4 != 0 {
-                field(&mut self.block, 16, u64::from(ext.gid));
-            }
-            if ext.present & 8 != 0 {
-                field(&mut self.block, 17, u64::from(ext.mode));
-            }
-            if ext.present & 1 != 0 {
-                field(&mut self.block, 18, ext.mtime);
-            }
-        }
-        self.block.push(0xff);
+        encode_item(
+            &mut self.block,
+            Item {
+                name,
+                stat,
+                previous,
+                child,
+                totals,
+                read_error,
+                descendant_error,
+            },
+            current,
+            extended,
+        )?;
         Ok(current)
     }
     pub fn finish(mut self, root: BinaryRef) -> io::Result<W> {
@@ -789,5 +755,171 @@ impl<R: Read + Seek> Reader<R> {
     }
     pub fn cached_blocks(&self) -> usize {
         self.cache.len()
+    }
+}
+
+pub(crate) fn encode_item(
+    buffer: &mut Vec<u8>,
+    item: Item<'_>,
+    current: BinaryRef,
+    extended: bool,
+) -> io::Result<()> {
+    let Item {
+        name,
+        stat,
+        previous,
+        child,
+        totals,
+        read_error,
+        descendant_error,
+    } = item;
+    buffer.push(0xbf);
+    head(buffer, 0, 0);
+    integer(buffer, stat.kind.wire());
+    head(buffer, 0, 1);
+    head(buffer, 2, name.len() as u64);
+    buffer.extend_from_slice(name);
+    reference_field(buffer, 2, previous, current)?;
+    field(buffer, 3, stat.apparent);
+    field(buffer, 4, stat.blocks.saturating_mul(512));
+    if stat.kind == Kind::Directory || stat.kind == Kind::Hardlink {
+        field(buffer, 5, stat.device);
+    }
+    if read_error || descendant_error {
+        head(buffer, 0, 6);
+        buffer.push(if read_error { 0xf5 } else { 0xf4 });
+    }
+    if stat.kind == Kind::Directory {
+        field(buffer, 7, totals.apparent);
+        field(buffer, 8, totals.allocated);
+        if totals.shared_apparent != 0 {
+            field(buffer, 9, totals.shared_apparent);
+        }
+        if totals.shared_allocated != 0 {
+            field(buffer, 10, totals.shared_allocated);
+        }
+        field(buffer, 11, totals.items);
+        reference_field(buffer, 12, child, current)?;
+    }
+    if stat.kind == Kind::Hardlink {
+        field(buffer, 13, stat.inode);
+        field(buffer, 14, u64::from(stat.links));
+    }
+    if extended {
+        let ext = stat.extended;
+        if ext.present & 2 != 0 {
+            field(buffer, 15, u64::from(ext.uid));
+        }
+        if ext.present & 4 != 0 {
+            field(buffer, 16, u64::from(ext.gid));
+        }
+        if ext.present & 8 != 0 {
+            field(buffer, 17, u64::from(ext.mode));
+        }
+        if ext.present & 1 != 0 {
+            field(buffer, 18, ext.mtime);
+        }
+    }
+    buffer.push(0xff);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn integer_widths_negative_boundaries_and_delta_bounds() {
+        for number in [
+            0,
+            23,
+            24,
+            255,
+            256,
+            65535,
+            65536,
+            u32::MAX as u64,
+            1 << 32,
+            u64::MAX,
+        ] {
+            let mut bytes = Vec::new();
+            head(&mut bytes, 0, number);
+            let mut parser = Cbor {
+                bytes: &bytes,
+                position: 0,
+            };
+            assert_eq!(parser.unsigned().unwrap(), number);
+            assert_eq!(parser.position, bytes.len());
+        }
+        for number in [0, -1, -24, -25, -256, -65536, i64::MIN, i64::MAX] {
+            let mut bytes = Vec::new();
+            integer(&mut bytes, number);
+            let mut parser = Cbor {
+                bytes: &bytes,
+                position: 0,
+            };
+            assert_eq!(parser.signed().unwrap(), number);
+        }
+        let mut bytes = Vec::new();
+        head(&mut bytes, 1, u64::MAX);
+        assert!(
+            Cbor {
+                bytes: &bytes,
+                position: 0
+            }
+            .signed()
+            .is_err()
+        );
+        assert!(
+            Cbor {
+                bytes: &bytes,
+                position: 0
+            }
+            .reference(BinaryRef(5))
+            .is_err()
+        );
+        let mut bytes = Vec::new();
+        head(&mut bytes, 1, 5);
+        assert!(
+            Cbor {
+                bytes: &bytes,
+                position: 0
+            }
+            .reference(BinaryRef((1 << 24) + 5))
+            .is_err()
+        );
+    }
+    #[test]
+    fn skip_nested_extensions_chunks_tags_and_preserve_remaining_input() {
+        let fixtures: &[&[u8]] = &[
+            b"\x82\x01\x02",
+            b"\x9f\x01\x9f\xf5\xf4\xff\xff",
+            b"\xbf\x01\x5f\x42ab\x41c\xff\xff",
+            b"\xd8\x2a\xa1\x01\x62ab",
+        ];
+        for fixture in fixtures {
+            let mut bytes = fixture.to_vec();
+            bytes.extend_from_slice(b"tail");
+            let mut parser = Cbor {
+                bytes: &bytes,
+                position: 0,
+            };
+            parser.skip(0).unwrap();
+            assert_eq!(&bytes[parser.position..], b"tail");
+        }
+        for invalid in [
+            b"\x82\x01".as_slice(),
+            b"\x5f\x61a\xff",
+            b"\xbf\x01\xff",
+            b"\xff",
+        ] {
+            assert!(
+                Cbor {
+                    bytes: invalid,
+                    position: 0
+                }
+                .skip(0)
+                .is_err()
+            );
+        }
     }
 }

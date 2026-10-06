@@ -187,7 +187,18 @@ impl<R: BufRead> Parser<R> {
                 if self.peek()? == Some(b'-') {
                     self.byte()?;
                 }
-                self.unsigned()?;
+                let first = self.byte()?;
+                if !first.is_ascii_digit() {
+                    return Err(self.error("expected numeric digits"));
+                }
+                if first == b'0' && self.peek()?.is_some_and(|byte| byte.is_ascii_digit()) {
+                    return Err(self.error("leading zero"));
+                }
+                if first != b'0' {
+                    while self.peek()?.is_some_and(|byte| byte.is_ascii_digit()) {
+                        self.byte()?;
+                    }
+                }
                 if self.peek()? == Some(b'.') {
                     self.byte()?;
                     self.digits()?;
@@ -397,7 +408,7 @@ pub fn string<W: Write>(writer: &mut W, bytes: &[u8]) -> io::Result<()> {
     }
     writer.write_all(b"\"")
 }
-pub fn object<W: Write>(
+pub fn object_fields<W: Write>(
     writer: &mut W,
     name: &[u8],
     stat: Observation,
@@ -455,6 +466,17 @@ pub fn object<W: Write>(
             write!(writer, ",\"mode\":{}", ext.mode)?;
         }
     }
+    Ok(())
+}
+pub fn object<W: Write>(
+    writer: &mut W,
+    name: &[u8],
+    stat: Observation,
+    parent_device: u64,
+    error: bool,
+    extended: bool,
+) -> io::Result<()> {
+    object_fields(writer, name, stat, parent_device, error, extended)?;
     writer.write_all(b"}")
 }
 pub fn header<W: Write>(writer: &mut W) -> io::Result<()> {
