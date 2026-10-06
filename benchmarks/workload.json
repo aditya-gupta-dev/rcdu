@@ -1,0 +1,1 @@
+{"version": 1, "kind": "synthetic-empty-files", "root": "/home/adi/dev/rs/rcdu/benchmarks/fixtures/broad", "files": 100000, "directories": 1024, "writes": "fixture generation only; scans do not read file contents"}
