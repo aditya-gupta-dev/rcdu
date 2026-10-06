@@ -1,3 +1,4 @@
+use crate::config::Color;
 use crate::os;
 use std::io;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -17,17 +18,21 @@ pub enum Key {
 }
 pub struct Terminal {
     pub handle: os::TerminalHandle,
+    _panic_restore: os::PanicRestoreGuard,
     pending: Vec<u8>,
     queued_key: Option<Key>,
+    pub color: Color,
 }
 impl Terminal {
     pub fn open() -> io::Result<Self> {
         let handle = os::TerminalHandle::open()?;
-        handle.panic_restore_hook()?;
+        let panic_restore = handle.panic_restore_hook()?;
         Ok(Self {
             handle,
+            _panic_restore: panic_restore,
             pending: Vec::new(),
             queued_key: None,
+            color: Color::Off,
         })
     }
     pub fn key(&mut self, timeout_ms: i32) -> io::Result<Option<Key>> {
@@ -92,18 +97,26 @@ impl Terminal {
         let (width, height) = self.handle.dimensions()?;
         let mut bytes = b"\x1b[H".to_vec();
         for (row, line) in lines.iter().take(height as usize).enumerate() {
+            let base = if color && self.color == Color::DarkBackground {
+                b"\x1b[0;37;40m".as_slice()
+            } else {
+                b"\x1b[0m".as_slice()
+            };
+            bytes.extend_from_slice(base);
             if selected == Some(row) {
-                bytes.extend_from_slice(b"\x1b[7m");
+                bytes.extend_from_slice(if color { b"\x1b[30;46m" } else { b"\x1b[7m" });
             } else if color && row == 0 {
-                bytes.extend_from_slice(b"\x1b[1;36m");
+                bytes.extend_from_slice(b"\x1b[1;30;46m");
             }
             bytes.extend_from_slice(super::display::shorten(line, width as usize).as_bytes());
-            bytes.extend_from_slice(b"\x1b[0m\x1b[K");
+            bytes.extend_from_slice(b"\x1b[K");
+            bytes.extend_from_slice(base);
             if row + 1 < height as usize {
                 bytes.extend_from_slice(b"\r\n");
             }
         }
         bytes.extend_from_slice(b"\x1b[J");
+        bytes.extend_from_slice(b"\x1b[0m");
         self.handle.write(&bytes)
     }
     /// The default answer is no. Session-only 'a' enables later deletion without another prompt.

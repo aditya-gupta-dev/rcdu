@@ -7,7 +7,7 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 pub const SIGNATURE: &[u8; 8] = b"\xbfncduEX1";
 pub const NO_REF: BinaryRef = BinaryRef(u64::MAX);
 const MAX_BLOCK: usize = (1 << 24) - 1;
-const MAX_INDEX: u64 = 64 * 1024 * 1024;
+pub(crate) const MAX_INDEX: u64 = 64 * 1024 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BinaryRef(pub u64);
 impl BinaryRef {
@@ -122,7 +122,7 @@ impl<W: Write> Writer<W> {
             .checked_add(12)
             .filter(|length| *length <= MAX_BLOCK)
             .ok_or_else(|| os::invalid("compressed block length exceeds 24 bits"))?;
-        if self.offset >= 1 << 40 || self.index.len() >= u32::MAX as usize {
+        if self.offset >= 1 << 40 || self.index.len() >= ((MAX_INDEX - 16) / 8) as usize {
             return Err(os::invalid("binary index capacity exceeded"));
         }
         let header = (length as u32).to_be_bytes();
@@ -182,7 +182,7 @@ impl<W: Write> Writer<W> {
             .len()
             .checked_mul(8)
             .and_then(|length| length.checked_add(16))
-            .filter(|length| *length < 1 << 28)
+            .filter(|length| *length <= MAX_INDEX as usize)
             .ok_or_else(|| os::invalid("index length overflow"))?;
         let header = (0x1000_0000 | length as u32).to_be_bytes();
         self.output.write_all(&header)?;
@@ -921,5 +921,38 @@ mod tests {
                 .is_err()
             );
         }
+    }
+    #[test]
+    fn cyclic_children_and_siblings_are_rejected_without_unbounded_traversal() {
+        fn file(payload: &[u8], root: u64) -> Vec<u8> {
+            let compressed = zstd::bulk::compress(payload, 1).unwrap();
+            let length = compressed.len() + 12;
+            let header = (length as u32).to_be_bytes();
+            let mut bytes = SIGNATURE.to_vec();
+            bytes.extend_from_slice(&header);
+            bytes.extend_from_slice(&0u32.to_be_bytes());
+            bytes.extend_from_slice(&compressed);
+            bytes.extend_from_slice(&header);
+            let index_header = (0x1000_0000u32 | 24).to_be_bytes();
+            bytes.extend_from_slice(&index_header);
+            bytes.extend_from_slice(&((8u64 << 24) | length as u64).to_be_bytes());
+            bytes.extend_from_slice(&root.to_be_bytes());
+            bytes.extend_from_slice(&index_header);
+            bytes
+        }
+        let self_child = b"\xbf\x00\x00\x01\x41/\x0c\x00\xff";
+        let bytes = file(self_child, 0);
+        let mut reader = Reader::open(std::io::Cursor::new(bytes)).unwrap();
+        let root = reader.get(reader.root).unwrap();
+        assert!(reader.children(&root).is_err());
+        assert!(reader.import().is_err());
+        let mut payload = b"\xbf\x00\x01\x01\x41x\x02\x00\xff".to_vec();
+        let root = payload.len() as u64;
+        payload.extend_from_slice(self_child);
+        let bytes = file(&payload, root);
+        let mut reader = Reader::open(std::io::Cursor::new(bytes)).unwrap();
+        let root = reader.get(reader.root).unwrap();
+        assert!(reader.children(&root).is_err());
+        assert!(reader.import().is_err());
     }
 }

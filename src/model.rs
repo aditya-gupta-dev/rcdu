@@ -73,8 +73,6 @@ pub struct Entry {
     pub apparent: u64,
     pub name_offset: u32,
     pub next: EntryId,
-    pub parent: EntryId,
-    pub side: u32,
 }
 impl Entry {
     pub fn kind(self) -> Kind {
@@ -126,9 +124,15 @@ pub struct Hardlink {
     pub key: InodeKey,
     pub links: u32,
 }
+#[derive(Clone, Copy, Debug)]
+pub struct ParentRun {
+    pub start: u32,
+    pub parent: EntryId,
+}
 #[derive(Default)]
 pub struct Part {
     pub entries: Vec<Entry>,
+    pub parents: Vec<ParentRun>,
     pub names: Vec<u8>,
     pub directories: Vec<Directory>,
     pub hardlinks: Vec<Hardlink>,
@@ -157,10 +161,14 @@ impl Part {
         }
         self.names.extend_from_slice(name);
         self.names.push(0);
-        let side = match stat.kind {
+        if self.parents.last().is_none_or(|run| run.parent != parent) {
+            self.parents.push(ParentRun {
+                start: id.slot() as u32,
+                parent,
+            });
+        }
+        match stat.kind {
             Kind::Directory => {
-                let side = u32::try_from(self.directories.len())
-                    .map_err(|_| os::invalid("directory capacity exceeded"))?;
                 self.directories.push(Directory {
                     entry: id,
                     device: stat.device,
@@ -171,11 +179,8 @@ impl Part {
                     read_error: false,
                     descendant_error: false,
                 });
-                side
             }
             Kind::Hardlink => {
-                let side = u32::try_from(self.hardlinks.len())
-                    .map_err(|_| os::invalid("hardlink capacity exceeded"))?;
                 self.hardlinks.push(Hardlink {
                     entry: id,
                     key: InodeKey {
@@ -184,17 +189,14 @@ impl Part {
                     },
                     links: stat.links,
                 });
-                side
             }
-            _ => u32::MAX,
-        };
+            _ => {}
+        }
         self.entries.push(Entry {
             packed_blocks: stat.blocks.min(BLOCK_LIMIT) | ((stat.kind as u64) << 60),
             apparent: stat.apparent,
             name_offset,
             next: NONE,
-            parent,
-            side,
         });
         if extended && stat.extended.present != 0 {
             self.extended.push((id, stat.extended));
@@ -233,12 +235,34 @@ impl Model {
     }
     pub fn directory(&self, id: EntryId) -> Option<&Directory> {
         let entry = self.entry(id);
-        (entry.kind() == Kind::Directory)
-            .then(|| &self.parts[id.part()].directories[entry.side as usize])
+        if entry.kind() != Kind::Directory {
+            return None;
+        }
+        let directories = &self.parts[id.part()].directories;
+        let index = directories
+            .binary_search_by_key(&id, |dir| dir.entry)
+            .expect("directory side record");
+        Some(&directories[index])
     }
     pub fn directory_mut(&mut self, id: EntryId) -> &mut Directory {
-        let side = self.entry(id).side as usize;
-        &mut self.parts[id.part()].directories[side]
+        let directories = &mut self.parts[id.part()].directories;
+        let index = directories
+            .binary_search_by_key(&id, |dir| dir.entry)
+            .expect("directory side record");
+        &mut directories[index]
+    }
+    /// Consecutive observations usually share a directory; one run replaces a parent word per file.
+    pub fn parent(&self, id: EntryId) -> EntryId {
+        let runs = &self.parts[id.part()].parents;
+        let index = runs.partition_point(|run| run.start <= id.slot() as u32);
+        runs[index - 1].parent
+    }
+    fn hardlink(&self, id: EntryId) -> &Hardlink {
+        let links = &self.parts[id.part()].hardlinks;
+        let index = links
+            .binary_search_by_key(&id, |link| link.entry)
+            .expect("hardlink side record");
+        &links[index]
     }
     pub fn extended(&self, id: EntryId) -> Option<Extended> {
         let values = &self.parts[id.part()].extended;
@@ -258,7 +282,7 @@ impl Model {
         let mut current = id;
         while current != NONE {
             components.push(self.name(current));
-            current = self.entry(current).parent;
+            current = self.parent(current);
         }
         let mut path = os::byte_path(components.pop().unwrap_or(b"."));
         for component in components.into_iter().rev() {
@@ -279,7 +303,7 @@ impl Model {
             stat.device = dir.device;
             stat.inode = dir.inode;
         } else if entry.kind() == Kind::Hardlink {
-            let link = &self.parts[id.part()].hardlinks[entry.side as usize];
+            let link = self.hardlink(id);
             stat.device = link.key.device;
             stat.inode = link.key.inode;
             stat.links = link.links;
@@ -303,6 +327,8 @@ impl Model {
                 );
             }
         }
+        let mut groups: HashMap<InodeKey, Vec<(EntryId, u32)>> = HashMap::new();
+        let mut processed = 0usize;
         for id in order.into_iter().rev() {
             if cancelled() {
                 return Err(io::Error::new(
@@ -322,6 +348,13 @@ impl Model {
                 .filter(|ext| ext.present & 1 != 0)
                 .map(|ext| ext.mtime);
             for child in self.children(id) {
+                processed += 1;
+                if processed % 4096 == 0 && cancelled() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Interrupted,
+                        "accounting cancelled",
+                    ));
+                }
                 let entry = *self.entry(child);
                 totals.items = totals.items.saturating_add(1);
                 if let Some(dir) = self.directory(child) {
@@ -331,7 +364,13 @@ impl Model {
                     error |= dir.read_error || dir.descendant_error;
                     mtime = mtime.max(dir.latest_mtime);
                 } else {
-                    if entry.kind() != Kind::Hardlink {
+                    if entry.kind() == Kind::Hardlink {
+                        let link = self.hardlink(child);
+                        groups
+                            .entry(link.key)
+                            .or_default()
+                            .push((child, link.links));
+                    } else {
                         totals.allocated = totals.allocated.saturating_add(entry.allocated());
                         totals.apparent = totals.apparent.saturating_add(entry.apparent);
                     }
@@ -347,26 +386,6 @@ impl Model {
             dir.totals = totals;
             dir.descendant_error = error;
             dir.latest_mtime = mtime;
-        }
-        let mut groups: HashMap<InodeKey, Vec<(EntryId, u32)>> = HashMap::new();
-        // Walk reachable entries; detached records from a mutation cannot contribute.
-        let mut pending = vec![self.root];
-        let mut processed = 0usize;
-        while let Some(id) = pending.pop() {
-            processed += 1;
-            if processed % 4096 == 0 && cancelled() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Interrupted,
-                    "accounting cancelled",
-                ));
-            }
-            let entry = *self.entry(id);
-            if entry.kind() == Kind::Directory {
-                pending.extend(self.children(id));
-            } else if entry.kind() == Kind::Hardlink {
-                let link = &self.parts[id.part()].hardlinks[entry.side as usize];
-                groups.entry(link.key).or_default().push((id, link.links));
-            }
         }
         for links in groups.values() {
             if cancelled() {
@@ -390,10 +409,10 @@ impl Model {
                         "hardlink accounting cancelled",
                     ));
                 }
-                let mut parent = self.entry(*id).parent;
+                let mut parent = self.parent(*id);
                 while parent != NONE {
                     *counts.entry(parent).or_default() += 1;
-                    parent = self.entry(parent).parent;
+                    parent = self.parent(parent);
                 }
             }
             for (id, count) in counts {

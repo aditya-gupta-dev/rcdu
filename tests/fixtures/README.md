@@ -1,0 +1,1 @@
+`inherited-device.ex1` is an authored, tiny EX1 wire fixture: `/root` declares device 42; its directory `child` and hardlink `file` deliberately omit the device key. The inode is 9, nlink 2, apparent size 7. This verifies inherited metadata when loading a nested listing lazily. CBOR is handwritten; compression uses Zstandard 1.5.7 level 1. No filesystem data is included.

@@ -110,8 +110,8 @@ pub fn size(bytes: u64, si: bool) -> String {
         / u128::from(divisors[unit])) as u64;
     format!("{:>3}.{} {}", tenths / 10, tenths % 10, units[unit])
 }
-// ncdu's natural comparator follows Martin Pool's strnatcmp: https://github.com/sourcefrog/natsort/.
-// Copyright (C) 2000, 2004 Martin Pool. Retain upstream notice in docs/credits.md.
+// Altered Rust implementation of ncdu's port of Martin Pool's strnatcmp.
+// Copyright (C) 2000, 2004 Martin Pool. Full notice: LICENSES/NaturalSort.txt.
 pub fn natural(left: &[u8], right: &[u8]) -> Ordering {
     let mut a = 0;
     let mut b = 0;

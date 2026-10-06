@@ -29,14 +29,14 @@ def normalize(path):
     with path.open('rb') as source:
         return run(['target/debug/examples/normalize'],stdin=source)
 
-def terminal(args, keys=b'q', expected=None, close=False, sig=None, redirected=False, env=None):
+def terminal(args, keys=b'q', expected=None, close=False, sig=None, redirected=False, env=None, program=None, expected_rc=0):
     master, slave = pty.openpty()
     fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',24,100,0,0))
     before=termios.tcgetattr(slave)
     def controlling_tty():
         os.setsid()
         fcntl.ioctl(slave, termios.TIOCSCTTY,0)
-    child=subprocess.Popen([exe,'--ignore-config',*map(str,args)],stdin=subprocess.PIPE if redirected else slave,stdout=subprocess.PIPE if redirected else slave,stderr=slave,preexec_fn=controlling_tty,close_fds=True,env=env)
+    child=subprocess.Popen([program or exe,'--ignore-config',*map(str,args)],stdin=subprocess.PIPE if redirected else slave,stdout=subprocess.PIPE if redirected else slave,stderr=slave,preexec_fn=controlling_tty,close_fds=True,env=env)
     screen=b'';deadline=time.monotonic()+10
     while time.monotonic()<deadline:
         ready,_,_=select.select([master],[],[],.1)
@@ -62,7 +62,7 @@ def terminal(args, keys=b'q', expected=None, close=False, sig=None, redirected=F
     if not close:
         after=termios.tcgetattr(slave)
         assert before==after,'terminal attributes not restored'
-        assert child.returncode==0,(child.returncode,screen[-1000:])
+        assert child.returncode==expected_rc,(child.returncode,screen[-1000:])
     os.close(slave)
     if master is not None: os.close(master)
 
@@ -140,6 +140,9 @@ with tempfile.TemporaryDirectory(prefix='rcdu-integration-') as owned:
     terminal([root], b'?|2|3|q|n|l|h|i|q|q')
     terminal(['-f',owned/'rust-1.bin'], b'n|l|h|q',redirected=True)
     terminal(['-f',source], b'd| |q|q',redirected=True)
+    terminal([],keys=b'',expected=b'panic cleanup fixture',program=str(Path('target/debug/examples/terminal_panic').resolve()),expected_rc=101)
+    malformed=owned/'malformed';malformed.write_bytes(b'not a valid imported file')
+    terminal(['-2','-f',malformed],keys=b'',expected=b'rcdu:',expected_rc=1)
     terminal([root], sig=signal.SIGTERM)
     terminal([root],close=True)
     # Delete a separate disposable target. Default Enter must choose No.
@@ -154,4 +157,4 @@ with tempfile.TemporaryDirectory(prefix='rcdu-integration-') as owned:
     shell.chmod(0o700);env=os.environ.copy();env['NCDU_SHELL']=str(shell);env['NCDU_LEVEL']='3'
     terminal([trash],b'b|q',env=env)
     assert result.read_text().splitlines()==['4',str(trash)],'shell environment/cwd failed' 
-print('PASS: bidirectional JSON/zstd/binary; config; navigation/help/details; redirected /dev/tty; resize; SIGTERM; lost tty; conservative/built-in/custom deletion; refresh; shell environment; statx fault fallback; low FD limit; permission and kernel roots; cross-device symlinks')
+print('PASS: bidirectional JSON/zstd/binary; config; navigation/help/details; redirected /dev/tty; resize; SIGTERM; panic/error cleanup; lost tty; conservative/built-in/custom deletion; refresh; shell environment; statx fault fallback; low FD limit; permission and kernel roots; cross-device symlinks')

@@ -3,7 +3,7 @@ name = "rcdu"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-license = "MIT"
+license = "MIT AND Zlib"
 description = "Linux disk usage browser with ncdu-compatible imports and exports"
 repository = "https://github.com/aditya-gupta-dev/rcdu"
 

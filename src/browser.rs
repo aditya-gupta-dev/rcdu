@@ -25,7 +25,7 @@ pub enum Source {
         listing: Model,
         references: Vec<BinaryRef>,
         current: BinaryRef,
-        ancestors: Vec<(BinaryRef, Vec<u8>)>,
+        ancestors: Vec<(BinaryRef, Vec<u8>, u64)>,
     },
 }
 impl Source {
@@ -50,15 +50,21 @@ impl Source {
         matches!(self, Self::Indexed { .. })
     }
 }
-fn load_indexed(
-    reader: &mut binary::Reader<File>,
+fn load_indexed<R: io::Read + io::Seek>(
+    reader: &mut binary::Reader<R>,
     reference: BinaryRef,
-    ancestors: &[(BinaryRef, Vec<u8>)],
+    ancestors: &[(BinaryRef, Vec<u8>, u64)],
 ) -> io::Result<(Model, Vec<BinaryRef>)> {
-    if ancestors.iter().any(|(ancestor, _)| *ancestor == reference) {
+    if ancestors
+        .iter()
+        .any(|(ancestor, _, _)| *ancestor == reference)
+    {
         return Err(os::invalid("binary navigation cycle"));
     }
-    let root_record = reader.get(reference)?;
+    let mut root_record = reader.get(reference)?;
+    if !root_record.has_device {
+        root_record.stat.device = ancestors.last().map_or(0, |(_, _, device)| *device);
+    }
     if root_record.stat.kind != Kind::Directory {
         return Err(os::invalid("expected indexed directory"));
     }
@@ -67,6 +73,8 @@ fn load_indexed(
     part.directories[0].totals = root_record.totals;
     part.directories[0].read_error = root_record.read_error;
     part.directories[0].descendant_error = root_record.descendant_error;
+    part.directories[0].latest_mtime =
+        (root_record.stat.extended.present & 1 != 0).then_some(root_record.stat.extended.mtime);
     let mut model = Model {
         parts: vec![part],
         root,
@@ -76,10 +84,13 @@ fn load_indexed(
     let mut seen = HashSet::new();
     while next != NO_REF {
         if next == reference
-            || ancestors.iter().any(|(ancestor, _)| *ancestor == next)
+            || ancestors.iter().any(|(ancestor, _, _)| *ancestor == next)
             || !seen.insert(next)
         {
             return Err(os::invalid("binary listing cycle"));
+        }
+        if seen.len() > 4_000_000 {
+            return Err(os::invalid("binary listing resource limit exceeded"));
         }
         let mut record = reader.get(next)?;
         if !record.has_device {
@@ -201,12 +212,12 @@ impl Browser {
             Source::Indexed {
                 listing, ancestors, ..
             } => {
-                let mut path = if let Some((_, name)) = ancestors.first() {
+                let mut path = if let Some((_, name, _)) = ancestors.first() {
                     os::byte_path(name)
                 } else {
                     os::byte_path(listing.name(listing.root))
                 };
-                for (_, name) in ancestors.iter().skip(1) {
+                for (_, name, _) in ancestors.iter().skip(1) {
                     path.push(os::byte_path(name));
                 }
                 if !ancestors.is_empty() {
@@ -276,7 +287,11 @@ impl Browser {
             } => {
                 let target = references[id.slot()];
                 let mut next_ancestors = ancestors.clone();
-                next_ancestors.push((*current, listing.name(listing.root).to_vec()));
+                next_ancestors.push((
+                    *current,
+                    listing.name(listing.root).to_vec(),
+                    listing.observation(listing.root).device,
+                ));
                 let (new_listing, new_refs) = load_indexed(reader, target, &next_ancestors)?;
                 *listing = new_listing;
                 *references = new_refs;
@@ -295,7 +310,7 @@ impl Browser {
         self.save();
         let name = self.source.model().name(self.current).to_vec();
         match &mut self.source {
-            Source::Memory(model) => self.current = model.entry(self.current).parent,
+            Source::Memory(model) => self.current = model.parent(self.current),
             Source::Indexed {
                 reader,
                 listing,
@@ -303,7 +318,7 @@ impl Browser {
                 current,
                 ancestors,
             } => {
-                let (reference, _) = ancestors.last().unwrap();
+                let (reference, _, _) = ancestors.last().unwrap();
                 let reference = *reference;
                 let (new_listing, new_refs) =
                     load_indexed(reader, reference, &ancestors[..ancestors.len() - 1])?;
@@ -526,7 +541,7 @@ impl Browser {
             let mut id = self.current;
             while id != model.root {
                 names.push(model.name(id).to_vec());
-                id = model.entry(id).parent;
+                id = model.parent(id);
             }
             names.reverse();
             names
@@ -597,6 +612,17 @@ impl Browser {
         };
         os::validate_action_root(&self.source.model().path(self.source.model().root))?;
         let path = self.source.model().path(target);
+        let next_name = self
+            .rows
+            .get(self.selected + 1)
+            .or_else(|| {
+                self.selected
+                    .checked_sub(1)
+                    .and_then(|index| self.rows.get(index))
+            })
+            .copied()
+            .flatten()
+            .map(|id| self.source.model().name(id).to_vec());
         if self.config.confirm_delete {
             match terminal.confirm(
                 &format!("Delete {}?", display::sanitize(os::path_bytes(&path))),
@@ -624,8 +650,6 @@ impl Browser {
                     delete::detach(model, target)?;
                     model.recount();
                 }
-            } else {
-                self.refresh_observations(terminal)?;
             }
             if !status.success() {
                 self.message = Some(format!("custom command returned {status}"));
@@ -693,6 +717,7 @@ impl Browser {
                 if report.aborted { "; aborted" } else { "" }
             ));
         }
+        self.reload(next_name.as_deref());
         if let Err(error) = self.refresh_observations(terminal) {
             self.message = Some(format!("Mutation applied; refresh failed: {error}"));
         }
@@ -846,7 +871,7 @@ impl Browser {
                     let id = links[cursor].1;
                     let name = self.source.model().name(id).to_vec();
                     self.save();
-                    self.current = self.source.model().entry(id).parent;
+                    self.current = self.source.model().parent(id);
                     self.reload(Some(&name));
                     break;
                 }
@@ -860,6 +885,7 @@ impl Browser {
         Ok(())
     }
     pub fn run(&mut self, terminal: &mut Terminal) -> io::Result<()> {
+        terminal.color = self.config.color;
         loop {
             if os::interrupted() {
                 break;
@@ -1037,7 +1063,8 @@ impl Browser {
                 "Directories include their own metadata sizes",
                 "Hardlinks count once in each containing ancestor",
                 "Shared = links exist outside directory; unique = total - shared",
-                "!: read error; .: descendant error; H: hardlink; <: exclusion; @: special",
+                "!: read error; .: descendant error; H: hardlink; @: special",
+                "<: excluded; >: other filesystem; ^: kernel filesystem; e: empty directory",
             ],
             &[
                 "rcdu 0.1.0 — Linux Rust rewrite",
@@ -1082,5 +1109,28 @@ impl Browser {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn indexed_navigation_inherits_device_and_rejects_ancestor_cycles() {
+        use std::io::Cursor;
+        let bytes = include_bytes!("../tests/fixtures/inherited-device.ex1");
+        let mut reader = binary::Reader::open(Cursor::new(bytes)).unwrap();
+        let root = reader.root;
+        let (listing, refs) = load_indexed(&mut reader, root, &[]).unwrap();
+        let child = listing.children(listing.root).next().unwrap();
+        let child_ref = refs[child.slot()];
+        assert!(!reader.get(child_ref).unwrap().has_device);
+        let ancestors = vec![(root, b"/root".to_vec(), 42)];
+        let (nested, _) = load_indexed(&mut reader, child_ref, &ancestors).unwrap();
+        assert_eq!(nested.observation(nested.root).device, 42);
+        let file = nested.children(nested.root).next().unwrap();
+        assert_eq!(nested.observation(file).device, 42);
+        assert_eq!(nested.observation(file).links, 2);
+        assert!(load_indexed(&mut reader, root, &ancestors).is_err());
     }
 }

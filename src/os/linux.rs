@@ -512,13 +512,16 @@ impl TerminalHandle {
     pub fn suspend(&mut self) -> io::Result<()> {
         if self.raw {
             use std::io::Write;
-            self.file.write_all(b"\x1b[?25h\x1b[?1049l")?;
-            self.file.flush()?;
+            let output = self
+                .file
+                .write_all(b"\x1b[0m\x1b[?25h\x1b[?1049l")
+                .and_then(|()| self.file.flush());
             // SAFETY: saved attributes came from tcgetattr on the same owned descriptor.
             if unsafe { libc::tcsetattr(self.file.as_raw_fd(), libc::TCSANOW, &self.saved) } != 0 {
                 return Err(io::Error::last_os_error());
             }
             self.raw = false;
+            output?;
         }
         Ok(())
     }
@@ -599,19 +602,39 @@ impl TerminalHandle {
         self.resume()?;
         result
     }
-    pub fn panic_restore_hook(&self) -> io::Result<()> {
+    pub fn panic_restore_hook(&self) -> io::Result<PanicRestoreGuard> {
         let fd = self.file.try_clone()?;
         let saved = self.saved;
-        let previous = std::panic::take_hook();
+        let previous = Arc::new(std::panic::take_hook());
+        let invoke_previous = Arc::clone(&previous);
         std::panic::set_hook(Box::new(move |information| {
             // SAFETY: hook owns the duplicate fd and initialized saved attributes for its lifetime.
             unsafe {
                 libc::tcsetattr(fd.as_raw_fd(), libc::TCSANOW, &saved);
                 libc::write(fd.as_raw_fd(), b"\x1b[?25h\x1b[?1049l".as_ptr().cast(), 14);
             }
-            previous(information);
+            invoke_previous(information);
         }));
-        Ok(())
+        Ok(PanicRestoreGuard {
+            previous: Some(previous),
+        })
+    }
+}
+type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync + 'static>;
+pub struct PanicRestoreGuard {
+    previous: Option<Arc<PanicHook>>,
+}
+impl Drop for PanicRestoreGuard {
+    fn drop(&mut self) {
+        // Rust forbids changing hooks while unwinding. The already-installed hook restored the tty.
+        if !std::thread::panicking() {
+            drop(std::panic::take_hook());
+            if let Some(previous) = self.previous.take() {
+                if let Ok(previous) = Arc::try_unwrap(previous) {
+                    std::panic::set_hook(previous);
+                }
+            }
+        }
     }
 }
 impl Drop for TerminalHandle {

@@ -99,7 +99,7 @@ impl Default for Config {
             confirm_delete: true,
             delete_command: None,
             graph_style: GraphStyle::Hash,
-            color: Color::Dark,
+            color: Color::Off,
         }
     }
 }

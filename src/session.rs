@@ -22,9 +22,16 @@ fn read_json(reader: impl Read) -> io::Result<crate::model::Model> {
     let mut reader = BufReader::new(reader);
     let mut prefix = [0; 4];
     reader.read_exact(&mut prefix)?;
+    if prefix == binary::SIGNATURE[..4] {
+        return Err(os::invalid(
+            "binary input requires a seekable file; stdin supports JSON",
+        ));
+    }
     let reader = std::io::Cursor::new(prefix).chain(reader);
     if prefix == [0x28, 0xb5, 0x2f, 0xfd] {
-        json::read(BufReader::new(zstd::stream::read::Decoder::new(reader)?))
+        let mut decoder = zstd::stream::read::Decoder::new(reader)?;
+        decoder.window_log_max(27)?;
+        json::read(BufReader::new(decoder))
     } else {
         json::read(BufReader::new(reader))
     }
@@ -118,9 +125,14 @@ fn export(config: &Config, model: &crate::model::Model) -> io::Result<()> {
             config.scan.extended,
         )?;
     } else if config.compress {
-        let mut encoder = zstd::stream::write::Encoder::new(&mut output, config.compression_level)?;
-        json::write(model, &mut encoder, config.scan.extended)?;
-        encoder.finish()?;
+        let encoder = zstd::stream::write::Encoder::new(&mut output, config.compression_level)?;
+        // Buffer before compression too: tiny JSON writes must not each enter native zstd.
+        let mut buffered = BufWriter::with_capacity(65536, encoder);
+        json::write(model, &mut buffered, config.scan.extended)?;
+        buffered
+            .into_inner()
+            .map_err(|error| error.into_error())?
+            .finish()?;
     } else {
         json::write(model, &mut output, config.scan.extended)?;
     }
@@ -256,11 +268,15 @@ fn export_scan(config: &Config, terminal: &mut Option<Terminal>) -> io::Result<(
             hook,
         )
     } else if config.compress {
-        let mut encoder = zstd::stream::write::Encoder::new(&mut output, config.compression_level)?;
-        let mut sink = crate::sink::Json::new(&mut encoder, config.scan.extended)?;
+        let encoder = zstd::stream::write::Encoder::new(&mut output, config.compression_level)?;
+        let mut buffered = BufWriter::with_capacity(65536, encoder);
+        let mut sink = crate::sink::Json::new(&mut buffered, config.scan.extended)?;
         scan::stream_with_progress(root, &config.scan, &mut sink, &cancel, hook)?;
         sink.finish()?;
-        encoder.finish()?;
+        buffered
+            .into_inner()
+            .map_err(|error| error.into_error())?
+            .finish()?;
         output.flush()
     } else {
         let mut sink = crate::sink::Json::new(&mut output, config.scan.extended)?;

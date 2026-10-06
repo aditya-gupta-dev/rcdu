@@ -60,7 +60,7 @@ impl Output {
             .len()
             .checked_mul(8)
             .and_then(|length| length.checked_add(16))
-            .filter(|length| *length < 1 << 28)
+            .filter(|length| *length <= binary::MAX_INDEX as usize)
             .ok_or_else(|| os::invalid("index length overflow"))?;
         let header = (0x1000_0000 | length as u32).to_be_bytes();
         let index = std::mem::take(&mut state.index);
@@ -100,6 +100,9 @@ impl Worker {
             number
         } else {
             let mut state = self.output.state.lock().unwrap();
+            if state.index.len() >= ((binary::MAX_INDEX - 16) / 8) as usize {
+                return Err(os::invalid("binary index capacity exceeded"));
+            }
             let number = u32::try_from(state.index.len())
                 .map_err(|_| os::invalid("block number overflow"))?;
             state.index.push(0);

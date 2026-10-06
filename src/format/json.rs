@@ -492,10 +492,10 @@ fn write_entry<W: Write>(
     if stat.kind.directory_like() {
         writer.write_all(b"[")?;
     }
-    let parent_device = if model.entry(id).parent == NONE {
+    let parent_device = if model.parent(id) == NONE {
         0
     } else {
-        model.directory(model.entry(id).parent).unwrap().device
+        model.directory(model.parent(id)).unwrap().device
     };
     object(
         writer,

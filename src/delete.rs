@@ -24,7 +24,7 @@ fn open_directory(model: &Model, id: EntryId) -> io::Result<OwnedFd> {
     let mut current = id;
     while current != model.root {
         ancestors.push(current);
-        current = model.entry(current).parent;
+        current = model.parent(current);
         if current == NONE {
             return Err(os::invalid("detached deletion target"));
         }
@@ -49,7 +49,7 @@ fn verify_directory(model: &Model, id: EntryId, fd: &OwnedFd) -> io::Result<()> 
     Ok(())
 }
 pub fn detach(model: &mut Model, id: EntryId) -> io::Result<()> {
-    let parent = model.entry(id).parent;
+    let parent = model.parent(id);
     if parent == NONE {
         return Err(os::invalid("cannot delete root"));
     }
@@ -96,7 +96,7 @@ pub fn remove_with_events(
     cancel: &Cancellation,
     mut on_event: impl FnMut(DeleteEvent<'_>) -> ErrorChoice,
 ) -> io::Result<DeleteReport> {
-    if target == model.root || model.entry(target).parent == NONE {
+    if target == model.root || model.parent(target) == NONE {
         return Err(os::invalid("cannot delete root"));
     }
     struct Frame {
@@ -163,7 +163,7 @@ pub fn remove_with_events(
             });
             continue;
         }
-        let result = open_directory(model, model.entry(id).parent).and_then(|fd| {
+        let result = open_directory(model, model.parent(id)).and_then(|fd| {
             let name = os::c_name(model.name(id))?;
             let before = os::metadata(fd.as_fd(), &name, false, os::MetadataBackend::Fstatat).ok();
             os::unlink_at(fd.as_fd(), &name, model.entry(id).kind().directory_like())?;
