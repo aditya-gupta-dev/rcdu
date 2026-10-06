@@ -1,0 +1,18 @@
+[package]
+name = "rcdu"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Linux disk usage browser with ncdu-compatible imports and exports"
+repository = "https://github.com/aditya-gupta-dev/rcdu"
+
+[dependencies]
+libc = "0.2"
+zstd = { version = "0.13", default-features = false }
+unicode-width = { version = "0.2", default-features = false }
+
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"
+strip = "none"
