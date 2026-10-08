@@ -1,30 +1,27 @@
-//! Platform boundary. Unsupported targets fail at compilation, rather than returning fake data.
-#[cfg(not(target_os = "linux"))]
-compile_error!("rcdu currently supports Linux only");
-#[cfg(target_os = "linux")]
+//! Safe interfaces for the Linux syscall boundary.
 mod linux;
-#[cfg(target_os = "linux")]
 pub use linux::*;
 
-use crate::model::Kind;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Extended {
-    pub mtime: u64,
-    pub uid: u32,
-    pub gid: u32,
-    pub mode: u16,
-    pub present: u8,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Observation {
-    pub kind: Kind,
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Metadata {
     pub blocks: u64,
     pub apparent: u64,
     pub device: u64,
     pub inode: u64,
     pub links: u32,
-    pub symlink: bool,
-    pub extended: Extended,
+    pub mode: u32,
+    pub mtime: u64,
+    pub uid: u32,
+    pub gid: u32,
+}
+impl Metadata {
+    pub fn directory(self) -> bool {
+        self.mode & libc::S_IFMT == libc::S_IFDIR
+    }
+    pub fn symlink(self) -> bool {
+        self.mode & libc::S_IFMT == libc::S_IFLNK
+    }
+    pub fn allocated(self) -> u64 {
+        self.blocks.saturating_mul(512)
+    }
 }

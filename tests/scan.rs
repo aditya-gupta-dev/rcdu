@@ -1,213 +1,211 @@
 use rcdu::{
     model::Kind,
     os,
-    scan::{self, ScanOptions},
+    scan::{self, Cancellation, Options},
 };
-use std::ffi::OsString;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::os::unix::{
+    ffi::OsStringExt,
+    fs::{MetadataExt, symlink},
+};
 use std::{
-    fs,
-    os::unix::{
-        ffi::OsStringExt,
-        fs::{MetadataExt, symlink},
-    },
+    fs, io,
     path::PathBuf,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 static SERIAL: AtomicUsize = AtomicUsize::new(0);
-struct Tree(PathBuf);
-impl Tree {
+struct Fixture(PathBuf);
+impl Fixture {
     fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
-            "rcdu-test-{}-{}",
+        let root = std::env::temp_dir().join(format!(
+            "rcdu-batch-{}-{}",
             std::process::id(),
             SERIAL.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        fs::create_dir(&root).unwrap();
+        Self(root)
     }
 }
-impl Drop for Tree {
+impl Drop for Fixture {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        let _ = fs::remove_dir_all(&self.0);
     }
-}
-fn find(
-    model: &rcdu::model::Model,
-    parent: rcdu::model::EntryId,
-    name: &[u8],
-) -> rcdu::model::EntryId {
-    model
-        .children(parent)
-        .find(|id| model.name(*id) == name)
-        .unwrap()
 }
 #[test]
-fn hardlinks_in_siblings_and_outside_root() {
-    let tree = Tree::new();
-    let root = tree.0.join("root");
+fn sparse_sizes_links_in_siblings_and_outside_root() {
+    let fixture = Fixture::new();
+    let root = fixture.0.join("tree");
     fs::create_dir(&root).unwrap();
-    for dir in ["a", "b"] {
-        fs::create_dir(root.join(dir)).unwrap();
+    for name in ["a", "b"] {
+        fs::create_dir(root.join(name)).unwrap();
     }
-    fs::write(root.join("a/file"), b"12345").unwrap();
-    fs::hard_link(root.join("a/file"), root.join("b/link")).unwrap();
-    fs::hard_link(root.join("a/file"), tree.0.join("outside")).unwrap();
-    for workers in [1, 2, 4] {
+    fs::write(root.join("a/h1"), b"12345").unwrap();
+    fs::hard_link(root.join("a/h1"), root.join("a/h2")).unwrap();
+    fs::hard_link(root.join("a/h1"), root.join("b/h3")).unwrap();
+    fs::hard_link(root.join("a/h1"), fixture.0.join("outside")).unwrap();
+    let sparse = fs::File::create(root.join("b/sparse")).unwrap();
+    sparse.set_len(1 << 30).unwrap();
+    let link = fs::metadata(root.join("a/h1")).unwrap();
+    for threads in [1, 2, 4, 0] {
         let model = scan::scan(
             &root,
-            &ScanOptions {
-                workers,
-                ..Default::default()
+            &Options {
+                threads,
+                ..Options::default()
             },
         )
         .unwrap();
-        assert_eq!(model.totals(model.root).items, 4);
-        for name in [b"a", b"b"] {
-            let id = find(&model, model.root, name);
-            assert_eq!(model.totals(id).shared_apparent, 5);
-            assert_eq!(
-                model.totals(id).apparent,
-                fs::metadata(root.join(os::byte_path(name))).unwrap().size() + 5
-            );
-        }
-        assert_eq!(model.totals(model.root).shared_apparent, 5);
+        let totals = model.directories[0].totals;
+        let directories = [
+            fs::metadata(&root).unwrap(),
+            fs::metadata(root.join("a")).unwrap(),
+            fs::metadata(root.join("b")).unwrap(),
+        ];
         assert_eq!(
-            model.totals(model.root).apparent,
-            fs::metadata(&root).unwrap().size()
-                + fs::metadata(root.join("a")).unwrap().size()
-                + fs::metadata(root.join("b")).unwrap().size()
-                + 5
+            totals.apparent,
+            directories.iter().map(|m| m.size()).sum::<u64>() + 5 + (1 << 30)
         );
-    }
-}
-#[test]
-fn sparse_raw_names_symlinks_and_backend_equivalence() {
-    let tree = Tree::new();
-    let path = tree.0.join(OsString::from_vec(b"bad\xff\nname".to_vec()));
-    let file = fs::File::create(&path).unwrap();
-    file.set_len(1 << 30).unwrap();
-    symlink(&path, tree.0.join("link")).unwrap();
-    symlink("missing", tree.0.join("dangling")).unwrap();
-    symlink(&tree.0, tree.0.join("dirlink")).unwrap();
-    let first = scan::scan(
-        &tree.0,
-        &ScanOptions {
-            workers: 1,
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    let second = scan::scan(
-        &tree.0,
-        &ScanOptions {
-            workers: 4,
-            backend: os::MetadataBackend::Statx,
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    assert_eq!(first.totals(first.root), second.totals(second.root));
-    let id = find(&first, first.root, b"bad\xff\nname");
-    assert_eq!(first.entry(id).apparent, 1 << 30);
-    assert_eq!(first.entry(id).allocated(), 0);
-    assert_eq!(
-        first.entry(find(&first, first.root, b"link")).kind(),
-        Kind::NonRegular
-    );
-    let followed = scan::scan(
-        &tree.0,
-        &ScanOptions {
-            workers: 2,
-            follow_symlinks: true,
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    assert_eq!(
-        followed
-            .entry(find(&followed, followed.root, b"link"))
-            .apparent,
-        1 << 30
-    );
-    assert_eq!(
-        followed
-            .entry(find(&followed, followed.root, b"dirlink"))
-            .kind(),
-        Kind::NonRegular
-    );
-}
-#[test]
-fn queue_saturation_and_deep_completion() {
-    let tree = Tree::new();
-    for n in 0..96 {
-        let path = tree.0.join(n.to_string());
-        fs::create_dir(&path).unwrap();
-        for m in 0..4 {
-            fs::create_dir(path.join(m.to_string())).unwrap();
-            fs::write(path.join(m.to_string()).join("f"), b"x").unwrap();
+        assert_eq!(
+            totals.allocated,
+            directories.iter().map(|m| m.blocks() * 512).sum::<u64>() + link.blocks() * 512
+        );
+        assert_eq!(totals.shared_apparent, 5);
+        assert_eq!(totals.shared_allocated, link.blocks() * 512);
+        assert_eq!(totals.items, 6);
+        for entry in model.children(0) {
+            let dir = model.directory_id(entry).unwrap();
+            assert_eq!(model.directories[dir as usize].totals.shared_apparent, 5);
         }
     }
-    let mut deep = tree.0.join("deep");
-    fs::create_dir(&deep).unwrap();
+}
+#[test]
+fn flat_directory_shares_metadata_and_preserves_raw_names() {
+    let fixture = Fixture::new();
+    for index in 0..8192 {
+        fs::File::create(fixture.0.join(format!("file-{index}"))).unwrap();
+    }
+    let raw = std::ffi::OsString::from_vec(b"raw\xff\n".to_vec());
+    fs::write(fixture.0.join(&raw), b"x").unwrap();
+    let model = scan::scan(
+        &fixture.0,
+        &Options {
+            threads: 4,
+            ..Options::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(model.directories[0].totals.items, 8193);
+    assert_eq!(model.len(), 8194);
+    assert!(
+        model
+            .parts
+            .iter()
+            .filter(|part| !part.entries.is_empty())
+            .count()
+            > 1,
+        "flat directory metadata must reach multiple workers"
+    );
+    let entry = model
+        .children(0)
+        .find(|entry| model.name(*entry) == b"raw\xff\n")
+        .unwrap();
+    assert_eq!(model.path(entry), fixture.0.join(raw));
+    assert_eq!(model.children(0).count(), 8193);
+    assert_eq!(std::mem::size_of::<rcdu::model::Entry>(), 24);
+}
+#[test]
+fn symlinks_do_not_recurse_and_cancellation_joins_workers() {
+    let fixture = Fixture::new();
+    fs::write(fixture.0.join("file"), b"data").unwrap();
+    symlink("file", fixture.0.join("link")).unwrap();
+    symlink(&fixture.0, fixture.0.join("cycle")).unwrap();
+    let model = scan::scan(
+        &fixture.0,
+        &Options {
+            threads: 4,
+            follow_symlinks: true,
+            ..Options::default()
+        },
+    )
+    .unwrap();
+    let cycle = model
+        .children(0)
+        .find(|entry| model.name(*entry) == b"cycle")
+        .unwrap();
+    assert_eq!(model.entry(cycle).kind(), Kind::Other);
+    let link = model
+        .children(0)
+        .find(|entry| model.name(*entry) == b"link")
+        .unwrap();
+    assert_eq!(model.entry(link).apparent, 4);
+    let cancel = Cancellation::default();
+    let trigger = cancel.clone();
+    let result = scan::scan_with_progress(
+        &fixture.0,
+        &Options {
+            threads: 4,
+            ..Options::default()
+        },
+        cancel,
+        |_| trigger.cancel(),
+    );
+    assert_eq!(result.err().unwrap().kind(), io::ErrorKind::Interrupted);
+    let panic = std::panic::catch_unwind(|| {
+        let _ = scan::scan_with_progress(
+            &fixture.0,
+            &Options {
+                threads: 4,
+                ..Options::default()
+            },
+            Cancellation::default(),
+            |_| panic!("hook"),
+        );
+    });
+    assert!(panic.is_err());
+}
+#[test]
+fn broad_and_deep_subtrees_have_stable_spans_and_directory_totals() {
+    let fixture = Fixture::new();
+    for index in 0..120 {
+        let dir = fixture.0.join(index.to_string());
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join("leaf"), b"x").unwrap();
+    }
+    let mut path = fixture.0.join("deep");
+    fs::create_dir(&path).unwrap();
     for _ in 0..80 {
-        deep.push("d");
-        fs::create_dir(&deep).unwrap();
+        path.push("d");
+        fs::create_dir(&path).unwrap();
     }
     let one = scan::scan(
-        &tree.0,
-        &ScanOptions {
-            workers: 1,
-            ..Default::default()
+        &fixture.0,
+        &Options {
+            threads: 1,
+            ..Options::default()
         },
     )
     .unwrap();
     for _ in 0..5 {
         let many = scan::scan(
-            &tree.0,
-            &ScanOptions {
-                workers: 4,
-                ..Default::default()
+            &fixture.0,
+            &Options {
+                threads: 4,
+                ..Options::default()
             },
         )
         .unwrap();
-        assert_eq!(one.len(), many.len());
-        assert_eq!(one.totals(one.root), many.totals(many.root));
+        assert_eq!(one.directories[0].totals, many.directories[0].totals);
+        let mut expected: Vec<_> = one
+            .directories
+            .iter()
+            .map(|dir| (os::bytes(&one.path(dir.entry)).to_vec(), dir.totals))
+            .collect();
+        let mut observed: Vec<_> = many
+            .directories
+            .iter()
+            .map(|dir| (os::bytes(&many.path(dir.entry)).to_vec(), dir.totals))
+            .collect();
+        expected.sort_by(|a, b| a.0.cmp(&b.0));
+        observed.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(expected, observed);
     }
-}
-#[test]
-fn cache_signature_and_directory_only_exclusions() {
-    let tree = Tree::new();
-    for name in ["valid", "invalid", "empty"] {
-        fs::create_dir(tree.0.join(name)).unwrap();
-    }
-    fs::write(
-        tree.0.join("valid/CACHEDIR.TAG"),
-        b"Signature: 8a477f597d28d172789f06886806bc55rest",
-    )
-    .unwrap();
-    fs::write(tree.0.join("invalid/CACHEDIR.TAG"), b"short").unwrap();
-    fs::write(tree.0.join("empty-file"), b"x").unwrap();
-    let mut options = ScanOptions {
-        workers: 2,
-        exclude_caches: true,
-        ..Default::default()
-    };
-    options.exclusions.add(b"empty*/").unwrap();
-    let model = scan::scan(&tree.0, &options).unwrap();
-    assert_eq!(
-        model.entry(find(&model, model.root, b"valid")).kind(),
-        Kind::Pattern
-    );
-    assert_eq!(
-        model.entry(find(&model, model.root, b"empty")).kind(),
-        Kind::Pattern
-    );
-    assert_eq!(
-        model.entry(find(&model, model.root, b"empty-file")).kind(),
-        Kind::Regular
-    );
-    assert_eq!(
-        model.entry(find(&model, model.root, b"invalid")).kind(),
-        Kind::Directory
-    );
 }

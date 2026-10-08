@@ -1,6 +1,4 @@
 fn main() {
-    if let Err(error) = rcdu::run(std::env::args_os().skip(1).collect()) {
-        eprintln!("rcdu: {error}");
-        std::process::exit(1);
-    }
+    eprintln!("rcdu 0.2.0: the new scan engine is being implemented; see docs/progress.md");
+    std::process::exit(1);
 }
