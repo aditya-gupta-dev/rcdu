@@ -141,8 +141,8 @@ pub struct Link {
 }
 #[derive(Default)]
 pub struct Part {
-    pub entries: Vec<Entry>,
-    pub names: Vec<u8>,
+    pub entries: crate::storage::Arena<Entry>,
+    pub names: crate::storage::Names,
     pub directories: Vec<(u32, u32)>,
     pub links: Vec<Link>,
     pub extended: Vec<(u32, Metadata)>,
@@ -164,25 +164,17 @@ impl Part {
         {
             return Err(os::invalid("invalid entry basename"));
         }
-        if worker == 255
-            || self.entries.len() >= 1 << 24
-            || self
-                .names
-                .len()
-                .checked_add(name.len() + 1)
-                .is_none_or(|length| length > u32::MAX as usize)
-        {
+        if worker == 255 || self.entries.len() >= 1 << 24 {
             return Err(os::invalid("worker arena capacity exceeded"));
         }
         let id = EntryId((u32::from(worker) << 24) | self.entries.len() as u32);
+        let name_offset = self.names.add(name)?;
         self.entries.push(Entry {
             packed: (stat.blocks.min(BLOCK_MASK)) | ((kind as u64) << 60),
             apparent: stat.apparent,
-            name: self.names.len() as u32,
+            name: name_offset,
             parent,
         });
-        self.names.extend_from_slice(name);
-        self.names.push(0);
         if kind == Kind::Hardlink {
             self.links.push(Link {
                 entry: id,
@@ -207,8 +199,7 @@ impl Model {
     }
     pub fn name(&self, id: EntryId) -> &[u8] {
         let part = &self.parts[id.worker()];
-        let remaining = &part.names[self.entry(id).name as usize..];
-        &remaining[..remaining.iter().position(|byte| *byte == 0).unwrap()]
+        part.names.get(self.entry(id).name)
     }
     pub fn directory_id(&self, id: EntryId) -> Option<u32> {
         let mappings = &self.parts[id.worker()].directories;

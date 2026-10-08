@@ -11,3 +11,4 @@ pub mod model;
 pub mod os;
 pub mod scan;
 pub mod session;
+pub mod storage;
