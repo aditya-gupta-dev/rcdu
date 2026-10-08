@@ -1,0 +1,22 @@
+#!/bin/sh
+# Compilation and test processes inherit the dynamically constrained Cargo wrapper.
+set -eu
+cd "$(dirname "$0")/.."
+scripts/cargo fmt --check
+scripts/cargo check --locked --all-targets
+scripts/cargo clippy --locked --all-targets -- -D warnings
+scripts/cargo test --locked
+scripts/cargo test --locked --release
+scripts/cargo build --locked --bin rcdu --examples
+scripts/check-notices
+if command -v ncdu >/dev/null 2>&1; then
+    case "$(ncdu --version)" in
+        *2.9.*) scripts/integration --baseline "$(command -v ncdu)" ;;
+        *) echo 'SKIP: differential integration requires ncdu 2.9.x' ;;
+    esac
+fi
+if command -v mandoc >/dev/null 2>&1; then
+    mandoc -T lint rcdu.1
+else
+    echo 'SKIP: mandoc unavailable'
+fi

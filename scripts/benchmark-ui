@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""First-frame, lazy listing and repeated-refresh measurements through a controlled PTY."""
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import pty
+import select
+import statistics
+import struct
+import subprocess
+import tempfile
+import termios
+import time
+from pathlib import Path
+from cpu_budget import available_cpus
+p=argparse.ArgumentParser()
+p.add_argument('--root',required=True,type=Path,help='scan directory, or binary file with --indexed')
+p.add_argument('--indexed',action='store_true')
+p.add_argument('--refreshes',type=int,default=0)
+p.add_argument('--workers',type=int,default=6)
+p.add_argument('--runs',type=int,default=5)
+p.add_argument('--baseline',type=Path,default=Path('target/baseline/ncdu-source'))
+p.add_argument('--candidate',type=Path,default=Path('target/release/rcdu'))
+p.add_argument('--label',required=True)
+a=p.parse_args()
+if a.runs<5 or a.refreshes<0 or a.indexed and a.refreshes:
+    p.error('five or more runs; nonnegative refresh count; no refresh in indexed mode')
+executables={'zig':a.baseline.resolve(),'rust':a.candidate.resolve()}
+commands={name:[str(exe),'--ignore-config','-0','-t',str(a.workers),*(['-f'] if a.indexed else []),str(a.root.resolve())] for name,exe in executables.items()}
+env=os.environ.copy();env.pop('RAYON_NUM_THREADS',None)
+
+def measure(command,out):
+    master,slave=pty.openpty()
+    fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',40,120,0,0))
+    before=termios.tcgetattr(slave)
+    def tty():
+        os.setsid();fcntl.ioctl(slave,termios.TIOCSCTTY,0)
+    start=time.monotonic()
+    monitor=subprocess.Popen(['target/tools/measure',str(out),*command],stdin=slave,stdout=slave,stderr=slave,preexec_fn=tty,close_fds=True,env=env)
+    def frame():
+        data=b'';deadline=time.monotonic()+60
+        while time.monotonic()<deadline:
+            ready,_,_=select.select([master],[],[],.02)
+            if ready:
+                data+=os.read(master,65536)
+                if b'Total ' in data: return time.monotonic()
+            if monitor.poll() is not None: raise RuntimeError(f'early exit: {data[-1000:]!r}')
+        monitor.kill();raise TimeoutError('no browser footer in 60 seconds')
+    first=frame()-start
+    children=Path(f'/proc/{monitor.pid}/task/{monitor.pid}/children').read_text().split()
+    assert len(children)==1,children
+    child=children[0]
+    def memory():
+        fields={line.split(':',1)[0]:line.split(':',1)[1].strip() for line in Path(f'/proc/{child}/status').read_text().splitlines() if ':' in line}
+        return {'vmrss_kib':int(fields['VmRSS'].split()[0]),'vmhwm_kib':int(fields['VmHWM'].split()[0])}
+    snapshots=[memory()];latencies=[]
+    for _ in range(a.refreshes):
+        # Remove pending periodic frames before sending the next action.
+        while select.select([master],[],[],.03)[0]: os.read(master,65536)
+        begin=time.monotonic();os.write(master,b'r');end=frame()
+        latencies.append(end-begin);snapshots.append(memory())
+    os.write(master,b'q');monitor.wait(timeout=10)
+    after=termios.tcgetattr(slave)
+    os.close(master);os.close(slave)
+    assert before==after,'terminal attributes were not restored'
+    assert monitor.returncode==0,monitor.returncode
+    return {**json.loads(out.read_text()),'first_frame_seconds':first,'refresh_seconds':latencies,'memory_after_frames':snapshots}
+
+records=[]
+with tempfile.TemporaryDirectory(prefix='rcdu-ui-benchmark-') as owned:
+    out=Path(owned)/'usage.json'
+    for command in commands.values(): measure(command,out)
+    for iteration in range(a.runs):
+        order=['zig','rust'] if iteration%2==0 else ['rust','zig']
+        for name in order:
+            result=measure(commands[name],out)
+            records.append({**result,'implementation':name,'iteration':iteration,'command':commands[name]})
+            print(f'{name}: first frame {result["first_frame_seconds"]:.3f}s; peak {result["peak_rss_kib"]} KiB',flush=True)
+summary=[]
+for name in executables:
+    group=[r for r in records if r['implementation']==name]
+    summary.append({'implementation':name,'first_frame_median':statistics.median(r['first_frame_seconds'] for r in group),'first_frame_range':[min(r['first_frame_seconds'] for r in group),max(r['first_frame_seconds'] for r in group)],'rss_median_kib':statistics.median(r['peak_rss_kib'] for r in group),'rss_range_kib':[min(r['peak_rss_kib'] for r in group),max(r['peak_rss_kib'] for r in group)]})
+meta={'manifest_version':1,'root':str(a.root.resolve()),'indexed':a.indexed,'workers':a.workers,'refreshes':a.refreshes,'available_cpus':available_cpus(),'affinity':sorted(os.sched_getaffinity(0)),'kernel':os.uname().release,'cache_state':'warm after one unmeasured run; no cache drops','terminal':'PTY 40x120; footer arrival; -0 scan UI; modern ANSI; fixed polling overhead common to both','first_frame_clock':'parent monotonic time including launching fresh native monitor; independent of native process wall timer','rss_unit':'KiB (Linux wait4 child ru_maxrss); /proc VmRSS/VmHWM samples after each frame','build_flags':'ordinary portable Cargo release / Zig0.15.2 ReleaseFast -Dstrip','versions':{name:subprocess.check_output([str(exe),'--version'],text=True).strip() for name,exe in executables.items()},'artifact_sha256':{name:hashlib.sha256(exe.read_bytes()).hexdigest() for name,exe in executables.items()}}
+path=Path('benchmarks/results')/f'{a.label}.json'
+with path.open('x') as out: json.dump({'environment':meta,'observations':records,'summary':summary},out,indent=2)
+print(json.dumps(summary,indent=2));print(path)

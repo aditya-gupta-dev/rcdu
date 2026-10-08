@@ -1,0 +1,1 @@
+{"version": 2, "kind": "synthetic-metadata", "shape": "deep", "root": "/home/adi/dev/rs/rcdu/benchmarks/fixtures/deep", "files": 1000, "directories": 128, "hardlinks_per_file": 1, "writes": "fixture generation only; scans do not read contents"}

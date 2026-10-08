@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Check preserved reference attribution and the altered natural-sort notice."""
+from pathlib import Path
+root=Path(__file__).resolve().parent.parent
+assert 'Yorhel <projects@yorhel.nl>' in (root/'LICENSE').read_text()
+assert 'Aditya Gupta' in (root/'LICENSE').read_text()
+assert 'Martin Pool' in (root/'LICENSES/NaturalSort.txt').read_text()
+assert 'altered' in (root/'src/ui/display.rs').read_text().lower()
+for source in (root/'reference/ncdu-2.9.2/src').glob('*.zig'):
+    assert 'SPDX-FileCopyrightText:' in source.read_text(),source
+    assert 'SPDX-License-Identifier:' in source.read_text(),source
+assert (root/'reference/ncdu-2.9.2/LICENSES/MIT.txt').is_file()
+print('PASS: ncdu MIT attribution, preserved source notices, altered natural-sort credit')

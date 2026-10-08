@@ -1,16 +1,36 @@
 #!/usr/bin/env python3
-"""Create a new, owned synthetic metadata workload; never replace an existing directory."""
+"""Create NEW owned broad/wide/deep/link-heavy fixtures; never replace a directory."""
 import argparse
 import json
+import os
 from pathlib import Path
-p = argparse.ArgumentParser()
-p.add_argument('root', type=Path)
-p.add_argument('--files', type=int, default=100000)
-p.add_argument('--directories', type=int, default=1024)
-a = p.parse_args()
-a.root.mkdir(parents=True, exist_ok=False)
-for number in range(a.directories):
-    (a.root / f'd{number:04}').mkdir()
+p=argparse.ArgumentParser()
+p.add_argument('root',type=Path)
+p.add_argument('--files',type=int,default=100000)
+p.add_argument('--directories',type=int,default=1024)
+p.add_argument('--shape',choices=['broad','wide','deep'],default='broad')
+p.add_argument('--hardlinks-per-file',type=int,default=1)
+a=p.parse_args()
+if a.files < 0 or a.directories < 1 or a.hardlinks_per_file < 1:
+    p.error('files must be nonnegative, directories and hardlink multiplicity positive')
+if a.shape == 'deep' and a.directories > 512:
+    p.error('deep fixture depth is capped at 512')
+a.root.mkdir(parents=True,exist_ok=False)
+folders=[]
+if a.shape == 'wide':
+    folders=[a.root]
+else:
+    current=a.root
+    for number in range(a.directories):
+        folder=current/'d' if a.shape=='deep' else a.root/f'd{number:04}'
+        folder.mkdir();folders.append(folder)
+        if a.shape=='deep': current=folder
+first=None
 for number in range(a.files):
-    (a.root / f'd{number % a.directories:04}' / f'file-{number:08}').touch()
-print(json.dumps({'version': 1, 'kind': 'synthetic-empty-files', 'root': str(a.root.resolve()), 'files': a.files, 'directories': a.directories, 'writes': 'fixture generation only; scans do not read file contents'}))
+    path=folders[number%len(folders)]/f'file-{number:08}'
+    if number%a.hardlinks_per_file == 0:
+        if a.hardlinks_per_file > 1: path.write_bytes(b'x'*4096)
+        else: path.touch()
+        first=path
+    else: os.link(first,path)
+print(json.dumps({'version':2,'kind':'synthetic-metadata','shape':a.shape,'root':str(a.root.resolve()),'files':a.files,'directories':0 if a.shape=='wide' else a.directories,'hardlinks_per_file':a.hardlinks_per_file,'writes':'fixture generation only; scans do not read contents'}))

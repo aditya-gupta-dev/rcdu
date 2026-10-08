@@ -1,0 +1,1 @@
+{"version": 2, "kind": "synthetic-metadata", "shape": "wide", "root": "/home/adi/dev/rs/rcdu/benchmarks/fixtures/wide", "files": 100000, "directories": 0, "hardlinks_per_file": 1, "writes": "fixture generation only; scans do not read contents"}

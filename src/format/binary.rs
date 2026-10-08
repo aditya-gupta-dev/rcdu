@@ -95,7 +95,7 @@ pub struct Writer<W> {
     index: Vec<u64>,
     offset: u64,
     block_size: usize,
-    level: i32,
+    compression: zstd::bulk::Compressor<'static>,
 }
 impl<W: Write> Writer<W> {
     pub fn new(mut output: W, block_size: usize, level: i32) -> io::Result<Self> {
@@ -109,14 +109,14 @@ impl<W: Write> Writer<W> {
             index: Vec::new(),
             offset: 8,
             block_size,
-            level,
+            compression: zstd::bulk::Compressor::new(level)?,
         })
     }
     fn flush_block(&mut self) -> io::Result<()> {
         if self.block.is_empty() {
             return Ok(());
         }
-        let compressed = zstd::bulk::compress(&self.block, self.level)?;
+        let compressed = self.compression.compress(&self.block)?;
         let length = compressed
             .len()
             .checked_add(12)

@@ -77,6 +77,7 @@ pub struct Worker {
     output: Arc<Output>,
     buffer: Vec<u8>,
     number: Option<u32>,
+    compression: Option<zstd::bulk::Compressor<'static>>,
 }
 impl Worker {
     pub fn new(output: Arc<Output>) -> Self {
@@ -84,6 +85,7 @@ impl Worker {
             buffer: Vec::with_capacity(output.block_size),
             output,
             number: None,
+            compression: None,
         }
     }
     pub fn item(&mut self, item: Item<'_>) -> io::Result<BinaryRef> {
@@ -117,7 +119,10 @@ impl Worker {
         let Some(number) = self.number.take() else {
             return Ok(());
         };
-        let compressed = zstd::bulk::compress(&self.buffer, self.output.level)?;
+        if self.compression.is_none() {
+            self.compression = Some(zstd::bulk::Compressor::new(self.output.level)?);
+        }
+        let compressed = self.compression.as_mut().unwrap().compress(&self.buffer)?;
         let length = compressed
             .len()
             .checked_add(12)

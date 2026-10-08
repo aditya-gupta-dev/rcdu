@@ -1,0 +1,9 @@
+[1,2,{"progname":"rcdu-documentation-example"},
+ [{"name":"/root","dev":7,"asize":4096,"dsize":4096},
+  [{"name":"a","asize":4096,"dsize":4096},
+   {"name":"plain","asize":1000,"dsize":4096},
+   {"name":"h1","ino":42,"nlink":4,"hlnkc":true,"asize":6000,"dsize":8192},
+   {"name":"h2","ino":42,"nlink":4,"hlnkc":true,"asize":6000,"dsize":8192}],
+  [{"name":"b","asize":4096,"dsize":4096},
+   {"name":"sparse","asize":1073741824,"dsize":0},
+   {"name":"h3","ino":42,"nlink":4,"hlnkc":true,"asize":6000,"dsize":8192}]]]

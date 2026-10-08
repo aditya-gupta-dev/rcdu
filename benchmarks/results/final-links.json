@@ -1,0 +1,1890 @@
+{
+  "environment": {
+    "manifest_version": 2,
+    "normalization_version": 2,
+    "label": "final-links",
+    "root": "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links",
+    "mode": "scan",
+    "metadata_backend": "fstatat",
+    "cache_state": "warm after one unmeasured run per implementation/setting; no cache dropping",
+    "available_cpus": 12,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "kernel": "7.2.8-arch1-2",
+    "machine": "x86_64",
+    "cpu": "AMD Ryzen 5 4600H with Radeon Graphics",
+    "filesystem": "ext2/ext3",
+    "storage": "/dev/nvme0n1p6 ext4 rw,relatime,stripe=4",
+    "versions": {
+      "zig": "ncdu 2.9.2",
+      "rust": "rcdu 0.1.0 (ncdu 2.9 compatible)"
+    },
+    "build_flags": {
+      "zig": "Zig 0.15.2 build --release=fast -Dstrip; portable target; system zstd 1.5.7",
+      "rust": "Cargo ordinary release; portable target; unwind; bundled zstd 1.5.7"
+    },
+    "artifact_sha256": {
+      "zig": "d8ee7f5e041de1603860a70c90740da66a37098fdc25d0fe3fbcc517b28acafd",
+      "rust": "a6c966658c4fbe0e35b422a13d12ed2916d42ffc1fbeab8c6053e8f22c498d87"
+    },
+    "rust_toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.97.1\nLLVM version: 22.1.6",
+    "rss_unit": "KiB (Linux wait4 ru_maxrss)",
+    "measurement": "scripts/measure.c fresh native fork/wait4 + CLOCK_MONOTONIC; scanner child rusage only; monitor excluded"
+  },
+  "observations": [
+    {
+      "wall_seconds": 0.066061739,
+      "user_seconds": 0.009989,
+      "system_seconds": 0.055942,
+      "peak_rss_kib": 6040,
+      "exit_status": 0,
+      "minor_faults": 505,
+      "major_faults": 0,
+      "voluntary_switches": 1,
+      "involuntary_switches": 0,
+      "implementation": "zig",
+      "workers": 1,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.18496,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.038278675,
+      "user_seconds": 0.007001,
+      "system_seconds": 0.031006,
+      "peak_rss_kib": 4572,
+      "exit_status": 0,
+      "minor_faults": 573,
+      "major_faults": 0,
+      "voluntary_switches": 3,
+      "involuntary_switches": 4,
+      "implementation": "rust",
+      "workers": 1,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.681728,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.035962459,
+      "user_seconds": 0.006972,
+      "system_seconds": 0.028885,
+      "peak_rss_kib": 4716,
+      "exit_status": 0,
+      "minor_faults": 573,
+      "major_faults": 0,
+      "voluntary_switches": 3,
+      "involuntary_switches": 2,
+      "implementation": "rust",
+      "workers": 1,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.829184,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.064240797,
+      "user_seconds": 0.007004,
+      "system_seconds": 0.057034,
+      "peak_rss_kib": 6160,
+      "exit_status": 0,
+      "minor_faults": 506,
+      "major_faults": 0,
+      "voluntary_switches": 1,
+      "involuntary_switches": 4,
+      "implementation": "zig",
+      "workers": 1,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.30784,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.065077127,
+      "user_seconds": 0.005997,
+      "system_seconds": 0.058971,
+      "peak_rss_kib": 6168,
+      "exit_status": 0,
+      "minor_faults": 506,
+      "major_faults": 0,
+      "voluntary_switches": 1,
+      "involuntary_switches": 0,
+      "implementation": "zig",
+      "workers": 1,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.316032,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.035762002,
+      "user_seconds": 0.011897,
+      "system_seconds": 0.023794,
+      "peak_rss_kib": 4696,
+      "exit_status": 0,
+      "minor_faults": 573,
+      "major_faults": 0,
+      "voluntary_switches": 3,
+      "involuntary_switches": 0,
+      "implementation": "rust",
+      "workers": 1,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.808704,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.044163855,
+      "user_seconds": 0.011015,
+      "system_seconds": 0.033046,
+      "peak_rss_kib": 4660,
+      "exit_status": 0,
+      "minor_faults": 573,
+      "major_faults": 0,
+      "voluntary_switches": 3,
+      "involuntary_switches": 1,
+      "implementation": "rust",
+      "workers": 1,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.77184,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.06079085,
+      "user_seconds": 0.009919,
+      "system_seconds": 0.050591,
+      "peak_rss_kib": 6208,
+      "exit_status": 0,
+      "minor_faults": 506,
+      "major_faults": 0,
+      "voluntary_switches": 1,
+      "involuntary_switches": 13,
+      "implementation": "zig",
+      "workers": 1,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.356992,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.063606671,
+      "user_seconds": 0.002975,
+      "system_seconds": 0.060494,
+      "peak_rss_kib": 6040,
+      "exit_status": 0,
+      "minor_faults": 506,
+      "major_faults": 0,
+      "voluntary_switches": 1,
+      "involuntary_switches": 1,
+      "implementation": "zig",
+      "workers": 1,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.18496,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.040145086,
+      "user_seconds": 0.008998,
+      "system_seconds": 0.030993,
+      "peak_rss_kib": 4664,
+      "exit_status": 0,
+      "minor_faults": 574,
+      "major_faults": 0,
+      "voluntary_switches": 3,
+      "involuntary_switches": 2,
+      "implementation": "rust",
+      "workers": 1,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "1",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.775936,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.028993414,
+      "user_seconds": 0.010084,
+      "system_seconds": 0.042355,
+      "peak_rss_kib": 6132,
+      "exit_status": 0,
+      "minor_faults": 521,
+      "major_faults": 0,
+      "voluntary_switches": 34,
+      "involuntary_switches": 1,
+      "implementation": "zig",
+      "workers": 2,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.279168,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.023263502,
+      "user_seconds": 0.012129,
+      "system_seconds": 0.02729,
+      "peak_rss_kib": 4640,
+      "exit_status": 0,
+      "minor_faults": 640,
+      "major_faults": 0,
+      "voluntary_switches": 6,
+      "involuntary_switches": 6,
+      "implementation": "rust",
+      "workers": 2,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.75136,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.023365057,
+      "user_seconds": 0.008267,
+      "system_seconds": 0.031001,
+      "peak_rss_kib": 4724,
+      "exit_status": 0,
+      "minor_faults": 643,
+      "major_faults": 0,
+      "voluntary_switches": 8,
+      "involuntary_switches": 3,
+      "implementation": "rust",
+      "workers": 2,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.837376,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.029294938,
+      "user_seconds": 0.010199,
+      "system_seconds": 0.042837,
+      "peak_rss_kib": 6224,
+      "exit_status": 0,
+      "minor_faults": 525,
+      "major_faults": 0,
+      "voluntary_switches": 65,
+      "involuntary_switches": 1,
+      "implementation": "zig",
+      "workers": 2,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.373376,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.02581789,
+      "user_seconds": 0.009018,
+      "system_seconds": 0.03908,
+      "peak_rss_kib": 6236,
+      "exit_status": 0,
+      "minor_faults": 524,
+      "major_faults": 0,
+      "voluntary_switches": 35,
+      "involuntary_switches": 1,
+      "implementation": "zig",
+      "workers": 2,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.385664,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.024695753,
+      "user_seconds": 0.008035,
+      "system_seconds": 0.034151,
+      "peak_rss_kib": 4692,
+      "exit_status": 0,
+      "minor_faults": 641,
+      "major_faults": 0,
+      "voluntary_switches": 8,
+      "involuntary_switches": 0,
+      "implementation": "rust",
+      "workers": 2,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.804608,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.025508754,
+      "user_seconds": 0.009132,
+      "system_seconds": 0.033484,
+      "peak_rss_kib": 4556,
+      "exit_status": 0,
+      "minor_faults": 643,
+      "major_faults": 0,
+      "voluntary_switches": 9,
+      "involuntary_switches": 2,
+      "implementation": "rust",
+      "workers": 2,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.665344,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.032066825,
+      "user_seconds": 0.006993,
+      "system_seconds": 0.050954,
+      "peak_rss_kib": 6484,
+      "exit_status": 0,
+      "minor_faults": 519,
+      "major_faults": 0,
+      "voluntary_switches": 47,
+      "involuntary_switches": 0,
+      "implementation": "zig",
+      "workers": 2,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.639616,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.028608147,
+      "user_seconds": 0.008973,
+      "system_seconds": 0.041874,
+      "peak_rss_kib": 6240,
+      "exit_status": 0,
+      "minor_faults": 523,
+      "major_faults": 0,
+      "voluntary_switches": 33,
+      "involuntary_switches": 1,
+      "implementation": "zig",
+      "workers": 2,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.38976,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.022546048,
+      "user_seconds": 0.007107,
+      "system_seconds": 0.031475,
+      "peak_rss_kib": 4576,
+      "exit_status": 0,
+      "minor_faults": 641,
+      "major_faults": 0,
+      "voluntary_switches": 7,
+      "involuntary_switches": 4,
+      "implementation": "rust",
+      "workers": 2,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "2",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.685824,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.015543971,
+      "user_seconds": 0.007716,
+      "system_seconds": 0.041474,
+      "peak_rss_kib": 6336,
+      "exit_status": 0,
+      "minor_faults": 538,
+      "major_faults": 0,
+      "voluntary_switches": 168,
+      "involuntary_switches": 0,
+      "implementation": "zig",
+      "workers": 4,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.488064,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.01760965,
+      "user_seconds": 0.007744,
+      "system_seconds": 0.04066,
+      "peak_rss_kib": 5364,
+      "exit_status": 0,
+      "minor_faults": 825,
+      "major_faults": 0,
+      "voluntary_switches": 24,
+      "involuntary_switches": 4,
+      "implementation": "rust",
+      "workers": 4,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.492736,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.017104178,
+      "user_seconds": 0.011589,
+      "system_seconds": 0.033715,
+      "peak_rss_kib": 5300,
+      "exit_status": 0,
+      "minor_faults": 826,
+      "major_faults": 0,
+      "voluntary_switches": 17,
+      "involuntary_switches": 5,
+      "implementation": "rust",
+      "workers": 4,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.4272,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.014711622,
+      "user_seconds": 0.003964,
+      "system_seconds": 0.04361,
+      "peak_rss_kib": 6356,
+      "exit_status": 0,
+      "minor_faults": 533,
+      "major_faults": 0,
+      "voluntary_switches": 38,
+      "involuntary_switches": 2,
+      "implementation": "zig",
+      "workers": 4,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.508544,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.018969681,
+      "user_seconds": 0.006848,
+      "system_seconds": 0.04696,
+      "peak_rss_kib": 6116,
+      "exit_status": 0,
+      "minor_faults": 542,
+      "major_faults": 0,
+      "voluntary_switches": 176,
+      "involuntary_switches": 6,
+      "implementation": "zig",
+      "workers": 4,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.262784,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.018803309,
+      "user_seconds": 0.008717,
+      "system_seconds": 0.044557,
+      "peak_rss_kib": 5328,
+      "exit_status": 0,
+      "minor_faults": 827,
+      "major_faults": 0,
+      "voluntary_switches": 27,
+      "involuntary_switches": 8,
+      "implementation": "rust",
+      "workers": 4,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.455872,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.014762819,
+      "user_seconds": 0.009803,
+      "system_seconds": 0.02941,
+      "peak_rss_kib": 5376,
+      "exit_status": 0,
+      "minor_faults": 828,
+      "major_faults": 0,
+      "voluntary_switches": 36,
+      "involuntary_switches": 1,
+      "implementation": "rust",
+      "workers": 4,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.505024,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.015267242,
+      "user_seconds": 0.007141,
+      "system_seconds": 0.041828,
+      "peak_rss_kib": 6292,
+      "exit_status": 0,
+      "minor_faults": 537,
+      "major_faults": 0,
+      "voluntary_switches": 129,
+      "involuntary_switches": 2,
+      "implementation": "zig",
+      "workers": 4,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.443008,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.015317113,
+      "user_seconds": 0.006896,
+      "system_seconds": 0.040395,
+      "peak_rss_kib": 6196,
+      "exit_status": 0,
+      "minor_faults": 540,
+      "major_faults": 0,
+      "voluntary_switches": 93,
+      "involuntary_switches": 4,
+      "implementation": "zig",
+      "workers": 4,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.344704,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.016581176,
+      "user_seconds": 0.009088,
+      "system_seconds": 0.036352,
+      "peak_rss_kib": 5332,
+      "exit_status": 0,
+      "minor_faults": 825,
+      "major_faults": 0,
+      "voluntary_switches": 21,
+      "involuntary_switches": 4,
+      "implementation": "rust",
+      "workers": 4,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "4",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.459968,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.011911446,
+      "user_seconds": 0.006234,
+      "system_seconds": 0.045718,
+      "peak_rss_kib": 6340,
+      "exit_status": 0,
+      "minor_faults": 550,
+      "major_faults": 0,
+      "voluntary_switches": 277,
+      "involuntary_switches": 5,
+      "implementation": "zig",
+      "workers": 6,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.49216,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.013755436,
+      "user_seconds": 0.010588,
+      "system_seconds": 0.035999,
+      "peak_rss_kib": 4940,
+      "exit_status": 0,
+      "minor_faults": 769,
+      "major_faults": 0,
+      "voluntary_switches": 20,
+      "involuntary_switches": 0,
+      "implementation": "rust",
+      "workers": 6,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.05856,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.013042524,
+      "user_seconds": 0.0075,
+      "system_seconds": 0.037501,
+      "peak_rss_kib": 5324,
+      "exit_status": 0,
+      "minor_faults": 773,
+      "major_faults": 0,
+      "voluntary_switches": 22,
+      "involuntary_switches": 8,
+      "implementation": "rust",
+      "workers": 6,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.451776,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.018353154,
+      "user_seconds": 0.013033,
+      "system_seconds": 0.053997,
+      "peak_rss_kib": 6192,
+      "exit_status": 0,
+      "minor_faults": 551,
+      "major_faults": 0,
+      "voluntary_switches": 485,
+      "involuntary_switches": 28,
+      "implementation": "zig",
+      "workers": 6,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.340608,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.016265124,
+      "user_seconds": 0.009129,
+      "system_seconds": 0.05376,
+      "peak_rss_kib": 5960,
+      "exit_status": 0,
+      "minor_faults": 550,
+      "major_faults": 0,
+      "voluntary_switches": 587,
+      "involuntary_switches": 3,
+      "implementation": "zig",
+      "workers": 6,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.10304,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.014272223,
+      "user_seconds": 0.008861,
+      "system_seconds": 0.040368,
+      "peak_rss_kib": 5208,
+      "exit_status": 0,
+      "minor_faults": 778,
+      "major_faults": 0,
+      "voluntary_switches": 45,
+      "involuntary_switches": 6,
+      "implementation": "rust",
+      "workers": 6,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.332992,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.012033257,
+      "user_seconds": 0.006047,
+      "system_seconds": 0.035275,
+      "peak_rss_kib": 5116,
+      "exit_status": 0,
+      "minor_faults": 775,
+      "major_faults": 0,
+      "voluntary_switches": 26,
+      "involuntary_switches": 1,
+      "implementation": "rust",
+      "workers": 6,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.238784,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.014795785,
+      "user_seconds": 0.011797,
+      "system_seconds": 0.046119,
+      "peak_rss_kib": 6132,
+      "exit_status": 0,
+      "minor_faults": 553,
+      "major_faults": 0,
+      "voluntary_switches": 409,
+      "involuntary_switches": 5,
+      "implementation": "zig",
+      "workers": 6,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.279168,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.012387164,
+      "user_seconds": 0.007147,
+      "system_seconds": 0.047988,
+      "peak_rss_kib": 6076,
+      "exit_status": 0,
+      "minor_faults": 551,
+      "major_faults": 0,
+      "voluntary_switches": 335,
+      "involuntary_switches": 3,
+      "implementation": "zig",
+      "workers": 6,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.221824,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.014369308,
+      "user_seconds": 0.008958,
+      "system_seconds": 0.034836,
+      "peak_rss_kib": 5084,
+      "exit_status": 0,
+      "minor_faults": 776,
+      "major_faults": 0,
+      "voluntary_switches": 40,
+      "involuntary_switches": 1,
+      "implementation": "rust",
+      "workers": 6,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "6",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.206016,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.01163856,
+      "user_seconds": 0.021091,
+      "system_seconds": 0.055503,
+      "peak_rss_kib": 6252,
+      "exit_status": 0,
+      "minor_faults": 587,
+      "major_faults": 0,
+      "voluntary_switches": 1740,
+      "involuntary_switches": 48,
+      "implementation": "zig",
+      "workers": 12,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.402048,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.017319651,
+      "user_seconds": 0.007498,
+      "system_seconds": 0.061061,
+      "peak_rss_kib": 5112,
+      "exit_status": 0,
+      "minor_faults": 850,
+      "major_faults": 0,
+      "voluntary_switches": 70,
+      "involuntary_switches": 28,
+      "implementation": "rust",
+      "workers": 12,
+      "iteration": 0,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.234688,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.011386208,
+      "user_seconds": 0.005721,
+      "system_seconds": 0.053781,
+      "peak_rss_kib": 4940,
+      "exit_status": 0,
+      "minor_faults": 820,
+      "major_faults": 0,
+      "voluntary_switches": 62,
+      "involuntary_switches": 4,
+      "implementation": "rust",
+      "workers": 12,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.05856,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.013365909,
+      "user_seconds": 0.01414,
+      "system_seconds": 0.069613,
+      "peak_rss_kib": 5900,
+      "exit_status": 0,
+      "minor_faults": 581,
+      "major_faults": 0,
+      "voluntary_switches": 1659,
+      "involuntary_switches": 123,
+      "implementation": "zig",
+      "workers": 12,
+      "iteration": 1,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.0416,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.0115391,
+      "user_seconds": 0.014694,
+      "system_seconds": 0.068953,
+      "peak_rss_kib": 6432,
+      "exit_status": 0,
+      "minor_faults": 592,
+      "major_faults": 0,
+      "voluntary_switches": 2125,
+      "involuntary_switches": 5,
+      "implementation": "zig",
+      "workers": 12,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.586368,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.009761672,
+      "user_seconds": 0.009428,
+      "system_seconds": 0.03981,
+      "peak_rss_kib": 4948,
+      "exit_status": 0,
+      "minor_faults": 816,
+      "major_faults": 0,
+      "voluntary_switches": 73,
+      "involuntary_switches": 3,
+      "implementation": "rust",
+      "workers": 12,
+      "iteration": 2,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.066752,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.011756669,
+      "user_seconds": 0.012269,
+      "system_seconds": 0.044988,
+      "peak_rss_kib": 4664,
+      "exit_status": 0,
+      "minor_faults": 809,
+      "major_faults": 0,
+      "voluntary_switches": 88,
+      "involuntary_switches": 9,
+      "implementation": "rust",
+      "workers": 12,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 4.775936,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.010414797,
+      "user_seconds": 0.009528,
+      "system_seconds": 0.068818,
+      "peak_rss_kib": 6052,
+      "exit_status": 0,
+      "minor_faults": 591,
+      "major_faults": 0,
+      "voluntary_switches": 2126,
+      "involuntary_switches": 6,
+      "implementation": "zig",
+      "workers": 12,
+      "iteration": 3,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.197248,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.016180122,
+      "user_seconds": 0.015247,
+      "system_seconds": 0.064576,
+      "peak_rss_kib": 5940,
+      "exit_status": 0,
+      "minor_faults": 586,
+      "major_faults": 0,
+      "voluntary_switches": 1183,
+      "involuntary_switches": 138,
+      "implementation": "zig",
+      "workers": 12,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/baseline/ncdu-source",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 6.08256,
+      "stderr": "\u001b[J",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    },
+    {
+      "wall_seconds": 0.015844863,
+      "user_seconds": 0.010037,
+      "system_seconds": 0.057993,
+      "peak_rss_kib": 5628,
+      "exit_status": 0,
+      "minor_faults": 892,
+      "major_faults": 0,
+      "voluntary_switches": 66,
+      "involuntary_switches": 25,
+      "implementation": "rust",
+      "workers": 12,
+      "iteration": 4,
+      "command": [
+        "/home/adi/dev/rs/rcdu/target/release/rcdu",
+        "--ignore-config",
+        "-0",
+        "-t",
+        "12",
+        "--quit-after-scan",
+        "/home/adi/dev/rs/rcdu/benchmarks/fixtures/links"
+      ],
+      "peak_rss_decimal_mb": 5.763072,
+      "stderr": "",
+      "correctness": {
+        "sha256": "8bbb98fd9ab5f73f9919b4fe7879dccb352bb07b122c06bf3a17afd5f531320d",
+        "entries_including_root": 20129,
+        "directories": 129,
+        "errors": 0,
+        "exclusions": 0,
+        "hardlinks": 20000,
+        "root_record": "\t0\t4096\t4096\t4624384\t4624384\t0\t0\t20128\t0\tfalse\tfalse\tNone\tNone"
+      }
+    }
+  ],
+  "summary": [
+    {
+      "implementation": "zig",
+      "workers": 1,
+      "wall_median": 0.064240797,
+      "wall_range": [
+        0.06079085,
+        0.066061739
+      ],
+      "rss_median_kib": 6160,
+      "rss_range_kib": [
+        6040,
+        6208
+      ]
+    },
+    {
+      "implementation": "rust",
+      "workers": 1,
+      "wall_median": 0.038278675,
+      "wall_range": [
+        0.035762002,
+        0.044163855
+      ],
+      "rss_median_kib": 4664,
+      "rss_range_kib": [
+        4572,
+        4716
+      ]
+    },
+    {
+      "implementation": "zig",
+      "workers": 2,
+      "wall_median": 0.028993414,
+      "wall_range": [
+        0.02581789,
+        0.032066825
+      ],
+      "rss_median_kib": 6236,
+      "rss_range_kib": [
+        6132,
+        6484
+      ]
+    },
+    {
+      "implementation": "rust",
+      "workers": 2,
+      "wall_median": 0.023365057,
+      "wall_range": [
+        0.022546048,
+        0.025508754
+      ],
+      "rss_median_kib": 4640,
+      "rss_range_kib": [
+        4556,
+        4724
+      ]
+    },
+    {
+      "implementation": "zig",
+      "workers": 4,
+      "wall_median": 0.015317113,
+      "wall_range": [
+        0.014711622,
+        0.018969681
+      ],
+      "rss_median_kib": 6292,
+      "rss_range_kib": [
+        6116,
+        6356
+      ]
+    },
+    {
+      "implementation": "rust",
+      "workers": 4,
+      "wall_median": 0.017104178,
+      "wall_range": [
+        0.014762819,
+        0.018803309
+      ],
+      "rss_median_kib": 5332,
+      "rss_range_kib": [
+        5300,
+        5376
+      ]
+    },
+    {
+      "implementation": "zig",
+      "workers": 6,
+      "wall_median": 0.014795785,
+      "wall_range": [
+        0.011911446,
+        0.018353154
+      ],
+      "rss_median_kib": 6132,
+      "rss_range_kib": [
+        5960,
+        6340
+      ]
+    },
+    {
+      "implementation": "rust",
+      "workers": 6,
+      "wall_median": 0.013755436,
+      "wall_range": [
+        0.012033257,
+        0.014369308
+      ],
+      "rss_median_kib": 5116,
+      "rss_range_kib": [
+        4940,
+        5324
+      ]
+    },
+    {
+      "implementation": "zig",
+      "workers": 12,
+      "wall_median": 0.01163856,
+      "wall_range": [
+        0.010414797,
+        0.016180122
+      ],
+      "rss_median_kib": 6052,
+      "rss_range_kib": [
+        5900,
+        6432
+      ]
+    },
+    {
+      "implementation": "rust",
+      "workers": 12,
+      "wall_median": 0.011756669,
+      "wall_range": [
+        0.009761672,
+        0.017319651
+      ],
+      "rss_median_kib": 4948,
+      "rss_range_kib": [
+        4664,
+        5628
+      ]
+    }
+  ]
+}

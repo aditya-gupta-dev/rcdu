@@ -1,0 +1,99 @@
+.TH RCDU 1 "October 2026" "rcdu 0.1.0" "User Commands"
+.SH NAME
+rcdu \- Linux disk usage browser with ncdu-compatible files
+.SH SYNOPSIS
+.B rcdu
+.RI [ options ]
+.RI [ directory ]
+.SH DESCRIPTION
+Scan directory entries and metadata, displaying allocated and apparent disk
+usage. Directories include their own usage. Hardlinks count once in each
+containing ancestor. File contents are not read, except cache marker files.
+The selected directory defaults to the current directory.
+.SH OPTIONS
+.TP
+.BR \-t ", " \-\-threads " N"
+Scan workers: 1 by default, 0 automatic, maximum 255.
+.TP
+.B \-x
+Stay on the selected filesystem.
+.TP
+.B \-e
+Store extended owner, group, mode and modification time metadata.
+.TP
+.B \-L
+Follow file symlinks. Directory symlinks are never traversed.
+.TP
+.BR \-r ", " \-rr
+Disable deletion; repeated usage also disables shell launch.
+.TP
+.BR \-0 ", " \-1 ", " \-2
+No, line, or full scanning UI. Exports default to no scanning UI.
+.TP
+.B \-q
+Slow UI updates to two seconds.
+.TP
+.B \-f FILE
+Import raw/Zstandard JSON or seekable EX1 binary. JSON stdin uses a dash.
+.TP
+.B \-o FILE
+Export JSON; a dash selects stdout. One worker streams, multiple workers stage
+observations in memory.
+.TP
+.B \-c
+Compress JSON output with Zstandard.
+.TP
+.B \-O FILE
+Export ncdu EX1 indexed binary, always Zstandard, with parallel block writers.
+.TP
+.B \-\-exclude PATTERN
+Exclude matching components. Leading slash anchors to the filesystem root;
+trailing slash matches directories only.
+.TP
+.B \-X FILE
+Read byte patterns from a file.
+.TP
+.BR \-\-exclude-caches ", " \-\-exclude-kernfs
+Exclude valid CACHEDIR.TAG directories or child Linux kernel filesystem crossings.
+.TP
+.B \-\-ignore-config
+Do not read configuration files.
+.TP
+.B \-\-quit-after-scan
+Construct and finalize the complete memory model, then exit.
+.TP
+.B \-\-help
+Show the full option summary. Detailed options are documented in docs/cli.md.
+.SH KEYS
+Arrows or hjkl navigate; Enter enters a directory; Backspace goes to parent.
+q quits, ? shows help, i shows details, d deletes after default-No confirmation,
+r refreshes the current directory, and b opens a shell.
+n sorts names, s sizes, C item counts, M extended modification times.
+a toggles apparent size, e hidden entries, t directory grouping, c counts,
+m times, g graph/percent and u shared/unique usage.
+.SH CONFIGURATION
+Read /etc/ncdu.conf, then $XDG_CONFIG_HOME/ncdu/config or
+$HOME/.config/ncdu/config, then command-line overrides. Exclusions accumulate.
+Each line contains an option and optional value separated by whitespace or
+an equals sign. Blank lines and leading hash comments are ignored.
+Prefix an option with @ to suppress its errors. This is not shell quoting.
+.SH ENVIRONMENT
+NCDU_SHELL, otherwise SHELL, selects the shell. NCDU_LEVEL is incremented
+and capped at 9. Custom delete commands receive NCDU_DELETE_PATH and have a
+quoted target argument appended.
+.SH FILESYSTEM ACTIONS
+Imports disable shell, deletion and refresh by default. Explicit options may
+enable actions for JSON imports with safe absolute roots. Indexed files always
+disable deletion, refresh and hardlink navigation.
+Built-in deletion removes only scanned children and never follows directory
+symlinks. Refresh failures retain prior observations. A scan is not a snapshot
+of a concurrently changing filesystem.
+.SH NOTES
+Full UI uses /dev/tty independently of redirected stdin/stdout.
+Legacy JSON preserves invalid UTF-8 filename bytes. A late enumeration error
+after the first child cannot be appended to a streamed JSON directory object.
+.SH AUTHORS
+Aditya Gupta and contributors. ncdu by Yorhel; natural sorting by Martin Pool.
+.SH SEE ALSO
+.BR ncdu (1),
+.BR du (1)
