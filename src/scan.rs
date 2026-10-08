@@ -38,6 +38,7 @@ pub struct Progress {
 struct DirectoryWork {
     directory: u32,
     location: Arc<Location>,
+    parent_descriptor: Option<Arc<OwnedFd>>,
 }
 struct Batch {
     work: Arc<DirectoryWork>,
@@ -73,6 +74,16 @@ impl Shared {
         if queue.jobs.len() == self.capacity {
             return Some(job);
         }
+        queue.jobs.push_back(job);
+        self.ready.notify_one();
+        None
+    }
+    fn requeue(&self, job: Job) -> Option<Job> {
+        let mut queue = self.queue.lock().unwrap();
+        if queue.jobs.len() == self.capacity {
+            return Some(job);
+        }
+        // This overflow job was already counted by publish.
         queue.jobs.push_back(job);
         self.ready.notify_one();
         None
@@ -242,6 +253,7 @@ fn observe_batch(
             registry.work.push(Some(Arc::new(DirectoryWork {
                 directory: id,
                 location,
+                parent_descriptor: Some(Arc::clone(&batch.descriptor)),
             })));
             part.directories.push((entry.slot() as u32, id));
             discovered.push(id);
@@ -254,6 +266,11 @@ fn observe_batch(
     // Publish only after directory records/IDs exist. Overflow stores IDs, never owned descriptors.
     for id in new_directories {
         if shared.publish(Job::Directory(id)).is_some() {
+            // Deferred IDs may grow with tree width; they must not pin descriptors.
+            let mut registry = shared.registry.lock().unwrap();
+            Arc::get_mut(registry.work[id as usize].as_mut().unwrap())
+                .expect("unpublished child work")
+                .parent_descriptor = None;
             deferred.push(id);
         }
     }
@@ -271,7 +288,21 @@ fn enumerate(
     let work = shared.registry.lock().unwrap().work[id as usize]
         .take()
         .expect("directory enumerated once");
-    let descriptor = match work.location.open(shared.root.as_fd()) {
+    let mut work =
+        Arc::try_unwrap(work).unwrap_or_else(|_| unreachable!("unique unenumerated work"));
+    let opened = if let Some(parent) = work.parent_descriptor.take() {
+        os::open_directory(parent.as_fd(), &work.location.name).and_then(|fd| {
+            let stat = os::stat_directory(fd.as_fd())?;
+            if stat.device != work.location.device || stat.inode != work.location.inode {
+                return Err(os::invalid("directory changed since observation"));
+            }
+            Ok(fd)
+        })
+    } else {
+        work.location.open(shared.root.as_fd())
+    };
+    let work = Arc::new(work);
+    let descriptor = match opened {
         Ok(descriptor) => Arc::new(descriptor),
         Err(_) => {
             shared.registry.lock().unwrap().directories[id as usize].read_error = true;
@@ -306,7 +337,10 @@ fn enumerate(
         if batch.offsets.is_empty() {
             break;
         }
-        if let Some(Job::Metadata(batch)) = shared.publish(Job::Metadata(batch)) {
+        // A partial final batch stays local: small directories need only one job.
+        if ended {
+            observe_batch(index, part, options, shared, batch, deferred)?;
+        } else if let Some(Job::Metadata(batch)) = shared.publish(Job::Metadata(batch)) {
             observe_batch(index, part, options, shared, batch, deferred)?;
             shared.complete();
         }
@@ -318,6 +352,13 @@ fn worker(index: u8, mut part: Part, options: &Options, shared: &Shared) -> io::
     let mut deferred = Vec::new();
     loop {
         shared.check()?;
+        // Redistribute overflow as capacity returns; a local backlog must not strand work.
+        while let Some(id) = deferred.pop() {
+            if shared.requeue(Job::Directory(id)).is_some() {
+                deferred.push(id);
+                break;
+            }
+        }
         let job = if let Some(id) = deferred.pop() {
             Job::Directory(id)
         } else if let Some(job) = shared.take() {
@@ -351,10 +392,19 @@ pub fn scan_with_progress(
     path: &Path,
     options: &Options,
     cancel: Cancellation,
-    mut hook: impl FnMut(Progress),
+    hook: impl FnMut(Progress),
 ) -> io::Result<Model> {
     let path = std::fs::canonicalize(path)?;
     let root = os::open_root(&path)?;
+    scan_descriptor(&path, root, options, cancel, hook)
+}
+pub fn scan_descriptor(
+    path: &Path,
+    root: OwnedFd,
+    options: &Options,
+    cancel: Cancellation,
+    mut hook: impl FnMut(Progress),
+) -> io::Result<Model> {
     let mut stat = os::stat_directory(root.as_fd())?;
     if !options.extended {
         stat.present = 0;
@@ -395,6 +445,7 @@ pub fn scan_with_progress(
             work: vec![Some(Arc::new(DirectoryWork {
                 directory: 0,
                 location,
+                parent_descriptor: None,
             }))],
         }),
         root,
