@@ -13,6 +13,7 @@ pub struct Metadata {
     pub mtime: u64,
     pub uid: u32,
     pub gid: u32,
+    pub present: u8,
 }
 impl Metadata {
     pub fn directory(self) -> bool {

@@ -87,6 +87,7 @@ pub struct Directory {
     pub totals: Totals,
     pub read_error: bool,
     pub descendant_error: bool,
+    pub latest_mtime: Option<u64>,
 }
 impl Directory {
     pub fn new(entry: EntryId, parent: u32, stat: Metadata) -> Self {
@@ -103,6 +104,7 @@ impl Directory {
             },
             read_error: false,
             descendant_error: false,
+            latest_mtime: (stat.present & 1 != 0).then_some(stat.mtime),
         }
     }
 }
@@ -164,7 +166,7 @@ impl Part {
                 nlink: stat.links,
             });
         }
-        if extended {
+        if extended && stat.present != 0 {
             self.extended.push((id.slot() as u32, stat));
         }
         Ok(id)
@@ -196,6 +198,26 @@ impl Model {
             .binary_search_by_key(&(id.slot() as u32), |value| value.0)
             .ok()
             .map(|index| values[index].1)
+    }
+    pub fn metadata(&self, id: EntryId) -> Metadata {
+        let entry = *self.entry(id);
+        let mut stat = self.extended(id).unwrap_or_default();
+        stat.blocks = entry.blocks();
+        stat.apparent = entry.apparent;
+        if let Some(directory) = self.directory_id(id) {
+            let directory = &self.directories[directory as usize];
+            stat.device = directory.device;
+            stat.inode = directory.inode;
+        } else if entry.kind() == Kind::Hardlink {
+            let links = &self.parts[id.worker()].links;
+            let link = &links[links
+                .binary_search_by_key(&id.slot(), |link| link.entry.slot())
+                .expect("hardlink side record")];
+            stat.device = link.device;
+            stat.inode = link.inode;
+            stat.links = link.nlink;
+        }
+        stat
     }
     pub fn totals(&self, id: EntryId) -> Totals {
         self.directory_id(id).map_or_else(
@@ -250,6 +272,7 @@ impl Model {
             let parent = &mut parents[child.parent as usize];
             parent.totals.add(child.totals);
             parent.descendant_error |= child.read_error || child.descendant_error;
+            parent.latest_mtime = parent.latest_mtime.max(child.latest_mtime);
         }
         let mut groups: HashMap<(u64, u64), Vec<Link>> = HashMap::new();
         for part in &self.parts {

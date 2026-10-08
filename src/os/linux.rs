@@ -6,6 +6,67 @@ use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+mod curses;
+pub use curses::{Curses, Key};
+
+static INTERRUPTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+extern "C" fn interrupt(_: libc::c_int) {
+    INTERRUPTED.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+pub fn interrupted() -> bool {
+    INTERRUPTED.load(std::sync::atomic::Ordering::Relaxed)
+}
+pub struct Signals(Vec<(libc::c_int, libc::sigaction)>);
+impl Signals {
+    pub fn install() -> io::Result<Self> {
+        INTERRUPTED.store(false, std::sync::atomic::Ordering::Relaxed);
+        let mut guard = Self(Vec::new());
+        for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+            // SAFETY: zeroed sigaction structures are aligned writable storage.
+            let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
+            // SAFETY: old action is writable and initialized by successful sigaction.
+            let mut old: libc::sigaction = unsafe { std::mem::zeroed() };
+            action.sa_sigaction = interrupt as *const () as usize;
+            // SAFETY: handler only sets a lock-free atomic; both action pointers remain valid.
+            if unsafe { libc::sigaction(signal, &action, &mut old) } != 0 {
+                return Err(io::Error::last_os_error());
+            }
+            guard.0.push((signal, old));
+        }
+        Ok(guard)
+    }
+}
+pub fn timestamp(seconds: u64) -> String {
+    let Ok(seconds) = libc::time_t::try_from(seconds) else {
+        return "out of range".into();
+    };
+    // SAFETY: tm and byte buffer are aligned/initialized writable storage, time_t pointer valid.
+    let mut local: libc::tm = unsafe { std::mem::zeroed() };
+    let mut output = [0u8; 64];
+    // SAFETY: localtime_r writes local or returns null; strftime respects buffer length.
+    unsafe {
+        if libc::localtime_r(&seconds, &mut local).is_null() {
+            return "out of range".into();
+        }
+        let length = libc::strftime(
+            output.as_mut_ptr().cast(),
+            output.len(),
+            c"%Y-%m-%d %H:%M:%S %z".as_ptr(),
+            &local,
+        );
+        String::from_utf8_lossy(&output[..length]).into_owned()
+    }
+}
+impl Drop for Signals {
+    fn drop(&mut self) {
+        for (signal, action) in &self.0 {
+            // SAFETY: saved actions came from successful sigaction and remain valid.
+            unsafe {
+                libc::sigaction(*signal, action, std::ptr::null_mut());
+            }
+        }
+    }
+}
 
 pub fn invalid(reason: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, reason)
@@ -71,7 +132,97 @@ pub fn stat(parent: BorrowedFd<'_>, name: &CStr, follow: bool) -> io::Result<Met
         mtime: value.st_mtime.max(0) as u64,
         uid: value.st_uid,
         gid: value.st_gid,
+        present: 15,
     })
+}
+
+pub fn component_matches(pattern: &CStr, value: &[u8]) -> bool {
+    let Ok(value) = name(value) else {
+        return false;
+    };
+    // SAFETY: both C strings outlive fnmatch; zero flags match one component including dot names.
+    unsafe { libc::fnmatch(pattern.as_ptr(), value.as_ptr(), 0) == 0 }
+}
+pub fn cache_directory(fd: BorrowedFd<'_>) -> bool {
+    use std::io::Read;
+    // SAFETY: live descriptor and static terminated filename; resulting descriptor is owned.
+    let Ok(marker) = descriptor(unsafe {
+        libc::openat(
+            fd.as_raw_fd(),
+            c"CACHEDIR.TAG".as_ptr(),
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NONBLOCK,
+        )
+    }) else {
+        return false;
+    };
+    let mut file = std::fs::File::from(marker);
+    let mut signature = [0; 43];
+    file.read_exact(&mut signature).is_ok()
+        && &signature == b"Signature: 8a477f597d28d172789f06886806bc55"
+}
+pub fn kernel_filesystem(fd: BorrowedFd<'_>) -> bool {
+    // SAFETY: statfs is zero-initialized aligned storage filled by fstatfs.
+    let mut stat: libc::statfs = unsafe { std::mem::zeroed() };
+    // SAFETY: the descriptor is live and output storage writable.
+    if unsafe { libc::fstatfs(fd.as_raw_fd(), &mut stat) } != 0 {
+        return false;
+    }
+    matches!(
+        stat.f_type as u64,
+        0x42494e4d
+            | 0xcafe4a11
+            | 0x27e0eb
+            | 0x63677270
+            | 0x64626720
+            | 0x1cd1
+            | 0x9fa0
+            | 0x6165676c
+            | 0x73636673
+            | 0xf97cff8c
+            | 0x62656572
+            | 0x74726163
+    )
+}
+
+pub fn expand_home(value: &[u8]) -> io::Result<Vec<u8>> {
+    if !value.starts_with(b"~") {
+        return Ok(value.to_vec());
+    }
+    let separator = value
+        .iter()
+        .position(|byte| *byte == b'/')
+        .unwrap_or(value.len());
+    let home = if separator == 1 {
+        std::env::var_os("HOME")
+            .ok_or_else(|| invalid("HOME is unset"))?
+            .as_os_str()
+            .as_bytes()
+            .to_vec()
+    } else {
+        let user = name(&value[1..separator])?;
+        // SAFETY: passwd and buffer are aligned writable storage; user is terminated.
+        let mut result: libc::passwd = unsafe { std::mem::zeroed() };
+        let mut buffer = vec![0u8; 16384];
+        let mut pointer = std::ptr::null_mut();
+        // SAFETY: getpwnam_r writes within buffer and initializes result/pointer for this call.
+        let error = unsafe {
+            libc::getpwnam_r(
+                user.as_ptr(),
+                &mut result,
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                &mut pointer,
+            )
+        };
+        if error != 0 || pointer.is_null() {
+            return Err(invalid("unknown home directory user"));
+        }
+        // SAFETY: successful result's pw_dir points to a terminated string within live buffer.
+        unsafe { CStr::from_ptr(result.pw_dir) }.to_bytes().to_vec()
+    };
+    let mut result = home;
+    result.extend_from_slice(&value[separator..]);
+    Ok(result)
 }
 pub fn stat_directory(fd: BorrowedFd<'_>) -> io::Result<Metadata> {
     stat(fd, c".", true)

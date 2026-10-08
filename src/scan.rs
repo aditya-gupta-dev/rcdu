@@ -18,6 +18,9 @@ pub struct Options {
     pub extended: bool,
     pub same_filesystem: bool,
     pub follow_symlinks: bool,
+    pub exclude_caches: bool,
+    pub exclude_kernel: bool,
+    pub exclusions: crate::exclude::Exclusions,
 }
 #[derive(Clone, Default)]
 pub struct Cancellation(Arc<AtomicBool>);
@@ -121,6 +124,10 @@ fn classify(stat: Metadata) -> Kind {
     }
 }
 fn metadata(options: &Options, batch: &Batch, name: &CStr) -> (Kind, Metadata) {
+    let exclusion = options.exclusions.matches(&batch.work.location, name);
+    if exclusion == crate::exclude::Match::Any {
+        return (Kind::Excluded, Metadata::default());
+    }
     let Ok(mut stat) = os::stat(batch.descriptor.as_fd(), name, false) else {
         return (Kind::Error, Metadata::default());
     };
@@ -136,7 +143,25 @@ fn metadata(options: &Options, batch: &Batch, name: &CStr) -> (Kind, Metadata) {
     }
     if options.same_filesystem && stat.device != batch.work.location.device {
         (Kind::OtherFs, Metadata::default())
+    } else if stat.directory() && exclusion == crate::exclude::Match::Directory {
+        (Kind::Excluded, Metadata::default())
     } else {
+        if stat.directory()
+            && (options.exclude_caches
+                || options.exclude_kernel && stat.device != batch.work.location.device)
+        {
+            if let Ok(fd) = os::open_directory(batch.descriptor.as_fd(), name) {
+                if options.exclude_caches && os::cache_directory(fd.as_fd()) {
+                    return (Kind::Excluded, Metadata::default());
+                }
+                if options.exclude_kernel
+                    && stat.device != batch.work.location.device
+                    && os::kernel_filesystem(fd.as_fd())
+                {
+                    return (Kind::KernelFs, Metadata::default());
+                }
+            }
+        }
         (classify(stat), stat)
     }
 }
@@ -156,6 +181,7 @@ fn observe_batch(
     };
     let mut directories = Vec::new();
     let mut error = false;
+    let mut mtime = None;
     for offset in &batch.offsets {
         let name = CStr::from_bytes_until_nul(&batch.names[*offset as usize..])
             .expect("owned enumerated name");
@@ -184,12 +210,16 @@ fn observe_batch(
             });
         }
         error |= kind == Kind::Error;
+        if options.extended && stat.present & 1 != 0 {
+            mtime = mtime.max(Some(stat.mtime));
+        }
     }
     let new_directories = {
         let mut registry = shared.registry.lock().unwrap();
         let parent = &mut registry.directories[batch.work.directory as usize];
         parent.totals.add(totals);
         parent.descendant_error |= error;
+        parent.latest_mtime = parent.latest_mtime.max(mtime);
         parent.spans.push(Span {
             worker: index,
             start,
@@ -201,9 +231,14 @@ fn observe_batch(
                 .ok()
                 .filter(|id| *id != NO_PARENT)
                 .ok_or_else(|| os::invalid("directory capacity exceeded"))?;
-            registry
-                .directories
-                .push(Directory::new(entry, batch.work.directory, stat));
+            registry.directories.push(Directory::new(
+                entry,
+                batch.work.directory,
+                Metadata {
+                    present: if options.extended { stat.present } else { 0 },
+                    ..stat
+                },
+            ));
             registry.work.push(Some(Arc::new(DirectoryWork {
                 directory: id,
                 location,
@@ -320,7 +355,10 @@ pub fn scan_with_progress(
 ) -> io::Result<Model> {
     let path = std::fs::canonicalize(path)?;
     let root = os::open_root(&path)?;
-    let stat = os::stat_directory(root.as_fd())?;
+    let mut stat = os::stat_directory(root.as_fd())?;
+    if !options.extended {
+        stat.present = 0;
+    }
     let threads = if options.threads == 0 {
         std::thread::available_parallelism().map_or(1, usize::from)
     } else {

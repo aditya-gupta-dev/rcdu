@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Check ncurses keys and restoration solely on an owned temporary tree/PTY."""
+import fcntl
+import os
+from pathlib import Path
+import pty
+import select
+import signal
+import struct
+import subprocess
+import tempfile
+import termios
+import time
+
+binary = Path('target/debug/rcdu').resolve()
+
+def run(root, finish):
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 32, 120, 0, 0))
+    original = termios.tcgetattr(slave)
+    def attach():
+        os.setsid()
+        fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+    process = subprocess.Popen([str(binary), '--ignore-config', '-t4', str(root)], stdin=slave, stdout=slave, stderr=slave, preexec_fn=attach, env={**os.environ, 'TERM':'xterm-256color'})
+    seen = bytearray()
+    def expect(marker):
+        deadline = time.monotonic()+10
+        while marker not in seen:
+            if time.monotonic()>deadline:
+                raise RuntimeError(f'PTY did not show {marker!r}; exit={process.poll()}; tail={bytes(seen[-500:])!r}')
+            if select.select([master], [], [], .1)[0]:
+                seen.extend(os.read(master, 65536))
+        seen.clear()
+    try:
+        expect(b'Total disk usage:')
+        os.write(master,b'?')
+        expect(b'rcdu help')
+        os.write(master,b'2')
+        expect(b'Error reading directory')
+        os.write(master,b'q')
+        os.write(master,b'i')
+        expect(b'Item info')
+        os.write(master,b'i')
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+        process.send_signal(signal.SIGWINCH)
+        time.sleep(.15)
+        if finish == 'q': os.write(master,b'q')
+        else: process.send_signal(signal.SIGTERM)
+        code = process.wait(timeout=10)
+        if code != (0 if finish == 'q' else 1): raise RuntimeError(f'wrong exit {code}')
+        if termios.tcgetattr(slave) != original: raise RuntimeError('terminal attributes not restored')
+    finally:
+        if process.poll() is None: process.kill(); process.wait()
+        os.close(master); os.close(slave)
+
+with tempfile.TemporaryDirectory(prefix='rcdu-pty-') as directory:
+    root = Path(directory)
+    (root/'sub').mkdir()
+    (root/'sub'/'file').write_bytes(b'data')
+    (root/'other').write_bytes(b'other')
+    for finish in ['q', 'signal']: run(root, finish)
+print('ncurses navigation/help/details/resize/quit/signal terminal restoration: PASS')
