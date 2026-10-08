@@ -18,6 +18,30 @@ pub enum Kind {
     OtherFs,
     KernelFs,
 }
+impl Kind {
+    pub fn wire(self) -> i64 {
+        match self {
+            Self::Error => -1,
+            Self::Excluded => -2,
+            Self::OtherFs => -3,
+            Self::KernelFs => -4,
+            value => value as i64,
+        }
+    }
+    pub fn from_wire(value: i64) -> Self {
+        match value {
+            0 => Self::Directory,
+            1 => Self::Regular,
+            2 => Self::Other,
+            3 => Self::Hardlink,
+            -1 => Self::Error,
+            -3 => Self::OtherFs,
+            -4 => Self::KernelFs,
+            value if value < 0 => Self::Excluded,
+            _ => Self::Other,
+        }
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EntryId(pub u32);
 impl EntryId {
@@ -98,7 +122,7 @@ impl Directory {
             inode: stat.inode,
             spans: Vec::new(),
             totals: Totals {
-                allocated: stat.allocated(),
+                allocated: stat.blocks.min(BLOCK_MASK).saturating_mul(512),
                 apparent: stat.apparent,
                 ..Totals::default()
             },
@@ -134,6 +158,7 @@ impl Part {
         extended: bool,
     ) -> io::Result<EntryId> {
         if name.is_empty()
+            || name.len() > 32768
             || name.contains(&0)
             || (parent != NO_PARENT && (name.contains(&b'/') || name == b"." || name == b".."))
         {
@@ -229,14 +254,12 @@ impl Model {
             |dir| self.directories[dir as usize].totals,
         )
     }
-    pub fn children(&self, dir: u32) -> impl Iterator<Item = EntryId> + '_ {
-        self.directories[dir as usize]
-            .spans
-            .iter()
-            .flat_map(|span| {
-                (span.start..span.start + span.length)
-                    .map(|slot| EntryId((u32::from(span.worker) << 24) | slot))
-            })
+    pub fn children(&self, dir: u32) -> Children<'_> {
+        Children {
+            spans: self.directories[dir as usize].spans.iter(),
+            range: 0..0,
+            worker: 0,
+        }
     }
     pub fn path(&self, id: EntryId) -> PathBuf {
         let mut names = vec![self.name(id)];
@@ -331,5 +354,105 @@ impl Model {
             }
         }
         Ok(())
+    }
+}
+
+pub struct Children<'a> {
+    spans: std::slice::Iter<'a, Span>,
+    range: std::ops::Range<u32>,
+    worker: u8,
+}
+impl Iterator for Children<'_> {
+    type Item = EntryId;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(slot) = self.range.next() {
+                return Some(EntryId((u32::from(self.worker) << 24) | slot));
+            }
+            let span = self.spans.next()?;
+            self.worker = span.worker;
+            self.range = span.start..span.start + span.length;
+        }
+    }
+}
+
+/// Imports and mutation rebuilds share the same ordinary accounting contract as live batches.
+pub struct Builder {
+    model: Model,
+}
+impl Builder {
+    pub fn root(name: &[u8], stat: Metadata) -> io::Result<Self> {
+        let mut part = Part::default();
+        let entry = part.add(0, name, NO_PARENT, Kind::Directory, stat, true)?;
+        part.directories.push((0, 0));
+        Ok(Self {
+            model: Model {
+                parts: vec![part],
+                directories: vec![Directory::new(entry, NO_PARENT, stat)],
+            },
+        })
+    }
+    pub fn add(
+        &mut self,
+        parent: u32,
+        name: &[u8],
+        kind: Kind,
+        stat: Metadata,
+    ) -> io::Result<(EntryId, Option<u32>)> {
+        let entry = self.model.parts[0].add(0, name, parent, kind, stat, true)?;
+        let directory = &mut self.model.directories[parent as usize];
+        directory.totals.items = directory.totals.items.saturating_add(1);
+        if let Some(span) = directory
+            .spans
+            .last_mut()
+            .filter(|span| span.start + span.length == entry.slot() as u32)
+        {
+            span.length += 1;
+        } else {
+            directory.spans.push(Span {
+                worker: 0,
+                start: entry.slot() as u32,
+                length: 1,
+            });
+        }
+        if kind == Kind::Error {
+            directory.descendant_error = true;
+        }
+        if kind != Kind::Directory && kind != Kind::Hardlink {
+            directory.totals.add(Totals {
+                allocated: self.model.parts[0].entries[entry.slot()].allocated(),
+                apparent: stat.apparent,
+                ..Totals::default()
+            });
+        }
+        let directory = &mut self.model.directories[parent as usize];
+        if stat.present & 1 != 0 {
+            directory.latest_mtime = directory.latest_mtime.max(Some(stat.mtime));
+        }
+        let id = if kind == Kind::Directory {
+            let id = u32::try_from(self.model.directories.len())
+                .ok()
+                .filter(|id| *id != NO_PARENT)
+                .ok_or_else(|| os::invalid("directory capacity exceeded"))?;
+            self.model
+                .directories
+                .push(Directory::new(entry, parent, stat));
+            self.model.parts[0]
+                .directories
+                .push((entry.slot() as u32, id));
+            Some(id)
+        } else {
+            None
+        };
+        Ok((entry, id))
+    }
+    pub fn errors(&mut self, directory: u32, direct: bool, descendant: bool) {
+        let directory = &mut self.model.directories[directory as usize];
+        directory.read_error = direct;
+        directory.descendant_error |= descendant;
+    }
+    pub fn finish(mut self) -> io::Result<Model> {
+        self.model.finish_accounting(|| false)?;
+        Ok(self.model)
     }
 }

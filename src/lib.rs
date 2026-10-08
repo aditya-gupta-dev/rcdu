@@ -6,6 +6,7 @@ pub mod browser;
 pub mod cli;
 pub mod display;
 pub mod exclude;
+pub mod format;
 pub mod model;
 pub mod os;
 pub mod scan;
