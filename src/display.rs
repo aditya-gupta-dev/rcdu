@@ -87,6 +87,17 @@ pub fn size(bytes: u64, si: bool) -> String {
     let rounded = (u128::from(bytes) * 10 + divisor / 2) / divisor;
     format!("{:>3}.{} {}", rounded / 10, rounded % 10, labels[unit])
 }
+pub fn grouped(value: u64) -> String {
+    let digits = value.to_string();
+    let mut result = String::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(digit);
+    }
+    result
+}
 pub fn natural(mut left: &[u8], mut right: &[u8]) -> Ordering {
     loop {
         left = left.trim_ascii_start();

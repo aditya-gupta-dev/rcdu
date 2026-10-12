@@ -343,7 +343,7 @@ impl Browser {
             display::size(totals.allocated, self.config.si),
             if self.config.apparent { '*' } else { ' ' },
             display::size(totals.apparent, self.config.si),
-            totals.items
+            display::grouped(totals.items)
         );
         terminal.text(height - 1, 0, &" ".repeat(width), true, false, 0)?;
         terminal.text(
