@@ -142,9 +142,11 @@ fn metadata(options: &Options, batch: &Batch, name: &CStr) -> (Kind, Metadata) {
     let Ok(mut stat) = os::stat(batch.descriptor.as_fd(), name, false) else {
         return (Kind::Error, Metadata::default());
     };
+    let was_symlink = stat.symlink();
     if options.follow_symlinks && stat.symlink() {
-        if let Ok(target) = os::stat(batch.descriptor.as_fd(), name, true) {
+        if let Ok(mut target) = os::stat(batch.descriptor.as_fd(), name, true) {
             if !target.directory() {
+                target.was_symlink = was_symlink;
                 stat = target;
                 if stat.device != batch.work.location.device {
                     stat.links = 1;
@@ -153,9 +155,21 @@ fn metadata(options: &Options, batch: &Batch, name: &CStr) -> (Kind, Metadata) {
         }
     }
     if options.same_filesystem && stat.device != batch.work.location.device {
-        (Kind::OtherFs, Metadata::default())
+        (
+            Kind::OtherFs,
+            Metadata {
+                was_symlink,
+                ..Metadata::default()
+            },
+        )
     } else if stat.directory() && exclusion == crate::exclude::Match::Directory {
-        (Kind::Excluded, Metadata::default())
+        (
+            Kind::Excluded,
+            Metadata {
+                was_symlink,
+                ..Metadata::default()
+            },
+        )
     } else {
         if stat.directory()
             && (options.exclude_caches
@@ -163,13 +177,25 @@ fn metadata(options: &Options, batch: &Batch, name: &CStr) -> (Kind, Metadata) {
         {
             if let Ok(fd) = os::open_directory(batch.descriptor.as_fd(), name) {
                 if options.exclude_caches && os::cache_directory(fd.as_fd()) {
-                    return (Kind::Excluded, Metadata::default());
+                    return (
+                        Kind::Excluded,
+                        Metadata {
+                            was_symlink,
+                            ..Metadata::default()
+                        },
+                    );
                 }
                 if options.exclude_kernel
                     && stat.device != batch.work.location.device
                     && os::kernel_filesystem(fd.as_fd())
                 {
-                    return (Kind::KernelFs, Metadata::default());
+                    return (
+                        Kind::KernelFs,
+                        Metadata {
+                            was_symlink,
+                            ..Metadata::default()
+                        },
+                    );
                 }
             }
         }
@@ -421,7 +447,7 @@ pub fn scan_descriptor(
     let mut first = Part::default();
     let entry = first.add(
         0,
-        os::bytes(&path),
+        os::bytes(path),
         NO_PARENT,
         Kind::Directory,
         stat,
@@ -430,7 +456,7 @@ pub fn scan_descriptor(
     first.directories.push((entry.slot() as u32, 0));
     let location = Arc::new(Location {
         parent: None,
-        name: os::name(os::bytes(&path))?,
+        name: os::name(os::bytes(path))?,
         device: stat.device,
         inode: stat.inode,
     });

@@ -1,3 +1,11 @@
+# Current scan measurements
+
+`scripts/benchmark` measures the live scanner across worker counts, using plain-text root totals for stability checks. It no longer exports or reimports trees or compares ncdu wire formats. Root totals are a limited check, not a per-entry oracle; scanner behavior is verified separately by Rust tests and disposable CLI/PTY fixtures. Benchmark driver JSON records timings only, and is not an application import/export format.
+
+Build the native monitor with `mkdir -p target/tools` then `cc -O2 -Wall -Wextra -Werror scripts/measure.c -o target/tools/measure`. Example: `scripts/benchmark --root /path/to/tree --workers 1,4 --runs 5 --label live-scan`. Build `target/release/rcdu` first with `scripts/cargo build --release`.
+
+The notes below describe historical measurements before compatibility removal.
+
 # Measurement protocol
 
 The synthetic broad fixture has 100,000 empty files and 1,024 directories. `benchmarks/workload.json` records generation. Timing includes the entire browser model and final directory/hardlink accounting, with `--ignore-config -0 --quit-after-scan`, matched workers, a warmup, five alternating-order observations, and byte-aware normalized export checks outside measurement. This fixture does not represent the user's 60 GB tree.

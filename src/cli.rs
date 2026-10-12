@@ -1,4 +1,4 @@
-//! CLI and ncdu configuration. Parsing preserves raw Linux argument bytes.
+//! CLI and rcdu configuration. Parsing preserves raw Linux argument bytes.
 use crate::{os, scan::Options};
 use std::os::unix::ffi::OsStrExt;
 use std::{
@@ -37,9 +37,6 @@ pub enum Color {
 pub struct Config {
     pub scan: Options,
     pub root: Option<PathBuf>,
-    pub import: Option<PathBuf>,
-    pub export: Option<(PathBuf, bool)>,
-    pub report: Option<PathBuf>,
     pub ui: Option<u8>,
     pub help: bool,
     pub version: bool,
@@ -64,10 +61,6 @@ pub struct Config {
     pub can_refresh: Option<bool>,
     pub confirm_delete: bool,
     pub confirm_quit: bool,
-    pub delete_command: Option<Vec<u8>>,
-    pub compress: bool,
-    pub compress_level: i32,
-    pub block_size: usize,
     readonly: usize,
 }
 impl Default for Config {
@@ -75,9 +68,6 @@ impl Default for Config {
         Self {
             scan: Options::default(),
             root: None,
-            import: None,
-            export: None,
-            report: None,
             ui: None,
             help: false,
             version: false,
@@ -102,10 +92,6 @@ impl Default for Config {
             can_refresh: None,
             confirm_delete: true,
             confirm_quit: false,
-            delete_command: None,
-            compress: false,
-            compress_level: 1,
-            block_size: 65536,
             readonly: 0,
         }
     }
@@ -120,14 +106,7 @@ fn requires_value(option: &[u8]) -> bool {
             | b"--color"
             | b"--shared-column"
             | b"--graph-style"
-            | b"--delete-command"
-            | b"--compress-level"
-            | b"--export-block-size"
-            | b"--scan-report"
             | b"-t"
-            | b"-f"
-            | b"-o"
-            | b"-O"
             | b"-X"
     )
 }
@@ -192,24 +171,6 @@ impl Config {
                     self.can_shell = Some(false);
                 }
             }
-            b"-f" => {
-                if self.import.is_some() {
-                    return Err(os::invalid("multiple imports"));
-                }
-                self.import = Some(os::path(value));
-            }
-            b"-o" | b"-O" => {
-                if self.export.is_some() {
-                    return Err(os::invalid("multiple outputs"));
-                }
-                self.export = Some((os::path(value), option == b"-O"));
-            }
-            b"--scan-report" => self.report = Some(os::path(value)),
-            b"-c" | b"--compress" => self.compress = true,
-            b"--no-compress" => self.compress = false,
-            b"--compress-level" => self.compress_level = number(value, 1, 20)? as i32,
-            b"--export-block-size" => self.block_size = number(value, 4, 16000)? * 1024,
-            b"--delete-command" => self.delete_command = Some(value.to_vec()),
             b"--apparent-size" => {
                 self.apparent = true;
                 if self.sort == Sort::Allocated {
@@ -260,7 +221,7 @@ impl Config {
                 self.graph_style = match value {
                     b"hash" => Graph::Hash,
                     b"half-block" => Graph::Half,
-                    b"eighth-block" | b"eigth-block" => Graph::Eighth,
+                    b"eighth-block" => Graph::Eighth,
                     _ => return Err(os::invalid("invalid graph style")),
                 }
             }
@@ -342,12 +303,12 @@ pub fn parse(arguments: &[OsString], load_config: bool) -> io::Result<Config> {
             .iter()
             .any(|arg| arg.as_bytes() == b"--ignore-config")
     {
-        optional_config(&mut config, Path::new("/etc/ncdu.conf"))?;
+        optional_config(&mut config, Path::new("/etc/rcdu.conf"))?;
         let home = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
         if let Some(home) = home {
-            optional_config(&mut config, &home.join("ncdu/config"))?;
+            optional_config(&mut config, &home.join("rcdu/config"))?;
         }
     }
     let mut index = 0;
@@ -411,9 +372,6 @@ pub fn parse(arguments: &[OsString], load_config: bool) -> io::Result<Config> {
             }
         }
     }
-    if config.root.is_some() && config.import.is_some() {
-        return Err(os::invalid("scan root and import are mutually exclusive"));
-    }
     Ok(config)
 }
-pub const HELP: &str = "rcdu 0.2 — Linux ncurses disk usage browser\nUsage: rcdu [options] [directory]\n  -t, --threads N     Workers: 0 automatic (default), 1..255 explicit\n  -x / -L / -e        One filesystem / follow file links / extended metadata\n  -0 / -1 / -2        No / line / curses scan UI\n  -f FILE             Import ncdu JSON, zstd JSON or EX1 binary\n  -o FILE [-c]        Export JSON, optionally zstd; '-' means stdout\n  -O FILE             Export indexed ncdu EX1 binary\n  --exclude PATTERN / -X FILE / --exclude-caches / --exclude-kernfs\n  -r / -rr            Disable deletion / deletion and shell\n  --ignore-config / --quit-after-scan / --scan-report FILE\n  --sort name|disk-usage|apparent-size|itemcount|mtime[-asc|-desc]\n  --apparent-size / --disk-usage / --si / --no-si\n  --shared-column off|shared|unique / --color off|dark|dark-bg\n  --graph-style hash|half-block|eighth-block\n  --compress-level 1..20 / --export-block-size 4..16000 (KiB)\n  --[enable|disable]-shell|-delete|-refresh|-natsort\n  --[show|hide]-hidden|-itemcount|-mtime|-graph|-percent\n  --[no-]group-directories-first / --[no-]confirm-delete|-quit\n  --delete-command COMMAND / --fast-ui-updates / --slow-ui-updates\n  -h, --help / -v, --version\nBrowser: arrows/hjkl, q, ?, i, d, r, b, n/s/C/M, a/e/t/c/m/g/u.\n";
+pub const HELP: &str = "rcdu 0.2 — Linux disk usage browser\nUsage: rcdu [options] [directory]\n  -t, --threads N     Workers: 0 automatic (default), 1..255 explicit\n  -x / -L / -e        One filesystem / follow file links / extended metadata\n  -0 / -1 / -2        No / line / curses scan UI\n  --exclude PATTERN / -X FILE / --exclude-caches / --exclude-kernfs\n  -r / -rr            Disable deletion / deletion and shell\n  --ignore-config / --quit-after-scan (print root sizes and exit)\n  --sort name|disk-usage|apparent-size|itemcount|mtime[-asc|-desc]\n  --apparent-size / --disk-usage / --si / --no-si\n  --shared-column off|shared|unique / --color off|dark|dark-bg\n  --graph-style hash|half-block|eighth-block\n  --[enable|disable]-shell|-delete|-refresh|-natsort\n  --[show|hide]-hidden|-itemcount|-mtime|-graph|-percent\n  --[no-]group-directories-first / --[no-]confirm-delete|-quit\n  --fast-ui-updates / --slow-ui-updates\n  -h, --help / -v, --version\nBrowser: D/d deletes selected file or directory (y confirms; q stops progress).\n         On error: a aborts, i ignores one, I ignores all.\n         Navigation: arrows/hjkl; ?: help; r: rescan; q: quit.\n";

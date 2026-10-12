@@ -1,4 +1,4 @@
-//! ncdu-compatible navigation and curses layout over compact directory spans.
+//! Disk usage navigation and curses layout over compact directory spans.
 use crate::{
     cli::{Color, Config, Graph, Shared, Sort},
     display,
@@ -12,6 +12,7 @@ enum Overlay {
     Help { tab: usize, offset: usize },
     Info { links: bool, selected: usize },
     Quit,
+    Delete(EntryId),
     Message(String),
 }
 pub struct Browser {
@@ -23,10 +24,9 @@ pub struct Browser {
     top: usize,
     saved: HashMap<u32, (Option<Vec<u8>>, usize)>,
     overlay: Overlay,
-    imported: bool,
 }
 impl Browser {
-    pub fn new(model: Model, config: Config, imported: bool) -> Self {
+    pub fn new(model: Model, config: Config) -> Self {
         let mut browser = Self {
             model,
             config,
@@ -36,7 +36,6 @@ impl Browser {
             top: 0,
             saved: HashMap::new(),
             overlay: Overlay::None,
-            imported,
         };
         browser.reload(None);
         browser
@@ -125,7 +124,7 @@ impl Browser {
                 '!'
             } else if directory.descendant_error {
                 '.'
-            } else if directory.spans.is_empty() {
+            } else if directory.totals.items == 0 {
                 'e'
             } else {
                 ' '
@@ -158,9 +157,7 @@ impl Browser {
         );
         terminal.text(0, 0, &" ".repeat(width), true, false, 0)?;
         terminal.text(0, 0, &display::shorten(&banner, width), true, false, 0)?;
-        let badge = if self.imported {
-            "[imported]"
-        } else if self.config.can_delete == Some(false) {
+        let badge = if self.config.can_delete == Some(false) {
             "[readonly]"
         } else {
             ""
@@ -363,12 +360,20 @@ impl Browser {
     fn draw_overlay(&self, terminal: &mut Curses) -> io::Result<()> {
         match &self.overlay {
             Overlay::None => Ok(()),
-            Overlay::Quit => popup(terminal, "Confirm quit", &["Really quit? (y/N)".into()]),
-            Overlay::Message(message) => popup(
+            Overlay::Delete(entry) => popup(
                 terminal,
-                "Message",
-                &[message.clone(), "Press any key to continue".into()],
+                "Confirm deletion",
+                &[
+                    display::escape(self.model.name(*entry)),
+                    "Delete this item? (y/N)".into(),
+                ],
             ),
+            Overlay::Quit => popup(terminal, "Confirm quit", &["Really quit? (y/N)".into()]),
+            Overlay::Message(message) => {
+                let mut lines: Vec<String> = message.lines().map(str::to_owned).collect();
+                lines.push("Press any key to continue".into());
+                popup(terminal, "Message", &lines)
+            }
             Overlay::Help { tab, offset } => {
                 let text: Vec<String> = match tab {
                     0 => HELP_KEYS
@@ -390,10 +395,9 @@ impl Browser {
                     .map(Into::into)
                     .to_vec(),
                     _ => vec![
-                        "NCurses Disk Usage".into(),
+                        "Rust disk usage browser".into(),
                         format!("rcdu {}", env!("CARGO_PKG_VERSION")),
                         "Fresh Rust implementation by Aditya Gupta".into(),
-                        "ncdu behavior/reference: Yorhel".into(),
                         "https://github.com/aditya-gupta-dev/rcdu".into(),
                     ],
                 };
@@ -484,7 +488,17 @@ impl Browser {
     }
     fn key(&mut self, key: Key, terminal: &mut Curses) -> io::Result<bool> {
         let page = terminal.dimensions().0.saturating_sub(3).max(1);
+        if let Overlay::Delete(entry) = self.overlay {
+            self.overlay = Overlay::None;
+            if matches!(key, Key::Character('y' | 'Y')) {
+                if let Err(error) = self.delete_entry(entry, terminal) {
+                    self.overlay = Overlay::Message(error.to_string());
+                }
+            }
+            return Ok(false);
+        }
         match &mut self.overlay {
+            Overlay::Delete(_) => unreachable!(),
             Overlay::Quit => {
                 let quit = matches!(key, Key::Character('y' | 'Y'));
                 self.overlay = Overlay::None;
@@ -654,16 +668,262 @@ impl Browser {
                     Shared::Unique => Shared::Off,
                 }
             }
-            Key::Character('r' | 'd' | 'b') => {
-                self.overlay = Overlay::Message(
-                    "This action is still being implemented in the new engine.".into(),
-                );
+            Key::Character('r') => {
+                if let Err(error) = self.refresh(terminal) {
+                    self.overlay = Overlay::Message(error.to_string());
+                }
+            }
+            Key::Character('b') => {
+                if let Err(error) = self.shell(terminal) {
+                    self.overlay = Overlay::Message(error.to_string());
+                }
+            }
+            Key::Character('d' | 'D') => {
+                if !self.config.can_delete.unwrap_or(true) {
+                    self.overlay =
+                        Overlay::Message("Deletion is disabled in configuration.".into());
+                } else if let Some(entry) = self.selected_entry() {
+                    if self.config.confirm_delete {
+                        self.overlay = Overlay::Delete(entry);
+                    } else if let Err(error) = self.delete_entry(entry, terminal) {
+                        self.overlay = Overlay::Message(error.to_string());
+                    }
+                }
             }
             _ => {
                 self.selection(key, page);
             }
         }
         Ok(false)
+    }
+    fn install_model(&mut self, model: Model) {
+        let path = self
+            .model
+            .path(self.model.directories[self.directory as usize].entry);
+        let name = self
+            .selected_entry()
+            .map(|entry| self.model.name(entry).to_vec());
+        self.model = model;
+        self.directory = self.model.directory_at_path(&path).unwrap_or(0);
+        self.saved.clear();
+        self.reload(name.as_deref());
+    }
+    fn refresh(&mut self, terminal: &mut Curses) -> io::Result<()> {
+        if !self.config.can_refresh.unwrap_or(true) {
+            return Err(io::Error::other("Refresh is disabled in configuration."));
+        }
+        let descriptor = os::open_model_directory(&self.model, self.directory)?;
+        let path = self
+            .model
+            .path(self.model.directories[self.directory as usize].entry);
+        let cancel = crate::scan::Cancellation::default();
+        let trigger = cancel.clone();
+        let mut failure = None;
+        let mut last = std::time::Instant::now()
+            .checked_sub(std::time::Duration::from_secs(3))
+            .unwrap();
+        let replacement = crate::scan::scan_descriptor(
+            &path,
+            descriptor,
+            &self.config.scan,
+            cancel,
+            |progress| {
+                if os::interrupted() {
+                    trigger.cancel();
+                }
+                let result = (|| -> io::Result<()> {
+                    if last.elapsed()
+                        >= std::time::Duration::from_millis(if self.config.slow {
+                            2000
+                        } else {
+                            100
+                        })
+                    {
+                        terminal.clear();
+                        terminal.text(0, 0, "rcdu — recalculating...", false, true, 0)?;
+                        terminal.text(
+                            2,
+                            2,
+                            &format!("{} items observed; q to abort", progress.entries),
+                            false,
+                            false,
+                            0,
+                        )?;
+                        terminal.refresh()?;
+                        last = std::time::Instant::now();
+                    }
+                    if matches!(terminal.key(0)?, Some(Key::Character('q'))) {
+                        trigger.cancel();
+                    }
+                    Ok(())
+                })();
+                if let Err(error) = result {
+                    failure = Some(error);
+                    trigger.cancel();
+                }
+            },
+        )?;
+        if let Some(error) = failure {
+            return Err(error);
+        }
+        let model = crate::mutation::rebuild(
+            &self.model,
+            Some((self.directory, &replacement)),
+            &Default::default(),
+            &Default::default(),
+        )?;
+        self.install_model(model);
+        Ok(())
+    }
+    fn shell(&mut self, terminal: &mut Curses) -> io::Result<()> {
+        if !self.config.can_shell.unwrap_or(true) {
+            return Err(io::Error::other("Shell is disabled in configuration."));
+        }
+        let descriptor = os::open_model_directory(&self.model, self.directory)?;
+        let shell = std::env::var_os("SHELL").unwrap_or_else(|| "/bin/sh".into());
+        let mut command = std::process::Command::new(shell);
+        os::command_in_directory(&mut command, descriptor);
+        os::terminal_stdio(&mut command)?;
+        run_command(terminal, &mut command)
+    }
+    fn delete_entry(&mut self, entry: EntryId, terminal: &mut Curses) -> io::Result<()> {
+        let terminal = std::cell::RefCell::new(terminal);
+        let tty_failure = std::cell::RefCell::new(None);
+        let steps = std::cell::Cell::new(0usize);
+        let last_draw = std::cell::Cell::new(
+            std::time::Instant::now()
+                .checked_sub(std::time::Duration::from_secs(1))
+                .unwrap(),
+        );
+        let outcome = crate::delete::remove_with_progress(
+            &self.model,
+            entry,
+            |entry, error| {
+                let result = (|| -> io::Result<crate::delete::ErrorAction> {
+                    loop {
+                        let mut terminal = terminal.borrow_mut();
+                        terminal.clear();
+                        popup(
+                            &mut terminal,
+                            "Deletion error",
+                            &[
+                                display::escape(self.model.name(entry)),
+                                error.to_string(),
+                                "a: abort, i: ignore, I: ignore all".into(),
+                            ],
+                        )?;
+                        terminal.refresh()?;
+                        if os::interrupted() {
+                            return Ok(crate::delete::ErrorAction::Abort);
+                        }
+                        match terminal.key(100)? {
+                            Some(Key::Character('i')) => {
+                                return Ok(crate::delete::ErrorAction::Ignore);
+                            }
+                            Some(Key::Character('I')) => {
+                                return Ok(crate::delete::ErrorAction::IgnoreAll);
+                            }
+                            Some(Key::Character('a' | 'q') | Key::Escape | Key::Enter) => {
+                                return Ok(crate::delete::ErrorAction::Abort);
+                            }
+                            _ => {}
+                        }
+                    }
+                })();
+                match result {
+                    Ok(action) => action,
+                    Err(error) => {
+                        *tty_failure.borrow_mut() = Some(error);
+                        crate::delete::ErrorAction::Abort
+                    }
+                }
+            },
+            |entry| {
+                let count = steps.get() + 1;
+                steps.set(count);
+                if count % 32 != 1
+                    && last_draw.get().elapsed() < std::time::Duration::from_millis(100)
+                {
+                    return !os::interrupted();
+                }
+                let result = (|| -> io::Result<bool> {
+                    let mut terminal = terminal.borrow_mut();
+                    if last_draw.get().elapsed() >= std::time::Duration::from_millis(100) {
+                        terminal.clear();
+                        terminal.text(0, 0, "rcdu — deleting...", false, true, 0)?;
+                        let width = terminal.dimensions().1.saturating_sub(4);
+                        terminal.text(
+                            2,
+                            2,
+                            &display::shorten(
+                                &display::escape(os::bytes(&self.model.path(entry))),
+                                width,
+                            ),
+                            false,
+                            false,
+                            0,
+                        )?;
+                        terminal.text(
+                            4,
+                            2,
+                            &format!("{count} steps; q to stop"),
+                            false,
+                            false,
+                            0,
+                        )?;
+                        terminal.refresh()?;
+                        last_draw.set(std::time::Instant::now());
+                    }
+                    Ok(!matches!(
+                        terminal.key(0)?,
+                        Some(Key::Character('q' | '\u{3}'))
+                    ))
+                })();
+                match result {
+                    Ok(keep_going) => keep_going && !os::interrupted(),
+                    Err(error) => {
+                        *tty_failure.borrow_mut() = Some(error);
+                        false
+                    }
+                }
+            },
+        );
+        let model = crate::mutation::rebuild(&self.model, None, &outcome.removed, &outcome.links)?;
+        self.install_model(model);
+        if let Some(error) = tty_failure.into_inner() {
+            return Err(error);
+        }
+        let removed_target = outcome.removed.contains(&entry);
+        let refresh_error =
+            if !removed_target && !outcome.aborted && self.config.can_refresh.unwrap_or(true) {
+                self.refresh(terminal.into_inner()).err()
+            } else {
+                None
+            };
+        if outcome.aborted || !removed_target || outcome.failures > 0 || refresh_error.is_some() {
+            let status = if outcome.aborted {
+                "stopped"
+            } else if removed_target {
+                "finished with errors"
+            } else {
+                "incomplete"
+            };
+            self.overlay = Overlay::Message(format!(
+                "Deletion {}\n{} removed; {} failed.{}{}",
+                status,
+                outcome.removed.len(),
+                outcome.failures,
+                if !removed_target {
+                    "\nSelected item remains."
+                } else {
+                    ""
+                },
+                refresh_error
+                    .map(|error| format!("\nRefresh failed: {error}"))
+                    .unwrap_or_default()
+            ));
+        }
+        Ok(())
     }
     pub fn run(&mut self, terminal: &mut Curses) -> io::Result<()> {
         loop {
@@ -805,7 +1065,10 @@ const HELP_KEYS: &[&str] = &[
     "s   Sort by size",
     "C   Sort by items",
     "M   Sort by mtime (-e)",
-    "d   Delete selected entry",
+    "D/d Delete selected file or directory",
+    "y   Confirm deletion; other key cancels",
+    "q   Stop an active deletion",
+    "a/i/I  Abort / ignore / ignore all on error",
     "t   Directories before files",
     "g   Percentage / graph",
     "u   Hard-link shared sizes",
@@ -818,3 +1081,14 @@ const HELP_KEYS: &[&str] = &[
     "b   Shell in current directory",
     "q   Quit rcdu",
 ];
+
+fn run_command(terminal: &mut Curses, command: &mut std::process::Command) -> io::Result<()> {
+    terminal.suspend()?;
+    let result = command.status();
+    terminal.resume()?;
+    let status = result?;
+    if !status.success() {
+        return Err(io::Error::other(format!("Command exited with {status}")));
+    }
+    Ok(())
+}

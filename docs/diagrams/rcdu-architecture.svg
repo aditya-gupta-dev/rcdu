@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1750" viewBox="0 0 2000 1750"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#868e96"/></marker></defs><rect width="2000" height="1750" fill="#f8f9fa"/><text x="40" y="52.0" fill="#343a40" font-family="monospace" font-size="32">rcdu | live filesystem architecture</text>
+<text x="40" y="82.0" fill="#868e96" font-family="monospace" font-size="16">Current implementation after compatibility cleanup | Linux / Rust | 2026-10-08</text>
+<rect x="30" y="110" width="1940" height="450" rx="14" fill="white" stroke="#dee2e6"/>
+<text x="55" y="154.0" fill="#343a40" font-family="monospace" font-size="24">01  Entry point, session and results</text>
+<text x="55" y="179.0" fill="#868e96" font-family="monospace" font-size="14">Solid arrows: execution / data flow. Dashed arrows: control / feedback. Each box identifies its source module.</text>
+<rect x="70" y="225" width="350" height="140" rx="12" stroke="#1971c2" fill="#e7f5ff" stroke-width="1.5"/>
+<text x="86" y="255.0" fill="#1971c2" font-family="monospace" font-size="14">main.rs -&gt; session::run</text>
+<text x="86" y="272.5" fill="#1971c2" font-family="monospace" font-size="14">cli.rs: parse arguments</text>
+<text x="86" y="290.0" fill="#1971c2" font-family="monospace" font-size="14">/etc/rcdu.conf + user rcdu/config</text>
+<text x="86" y="307.5" fill="#1971c2" font-family="monospace" font-size="14">Command-line values override config</text>
+<text x="86" y="325.0" fill="#1971c2" font-family="monospace" font-size="14">Help / version return immediately</text>
+<rect x="480" y="225" width="390" height="140" rx="12" stroke="#1971c2" fill="#e7f5ff" stroke-width="1.5"/>
+<text x="496" y="255.0" fill="#1971c2" font-family="monospace" font-size="14">session.rs owns application lifetime</text>
+<text x="496" y="272.5" fill="#1971c2" font-family="monospace" font-size="14">Signals guard + ncurses progress UI</text>
+<text x="496" y="290.0" fill="#1971c2" font-family="monospace" font-size="14">Live root directory only</text>
+<text x="496" y="307.5" fill="#1971c2" font-family="monospace" font-size="14">scan::scan_with_progress</text>
+<text x="496" y="325.0" fill="#1971c2" font-family="monospace" font-size="14">UI modes: none / line / curses</text>
+<rect x="950" y="225" width="420" height="140" rx="12" stroke="#2b8a3e" fill="#ebfbee" stroke-width="1.5"/>
+<text x="966" y="255.0" fill="#2b8a3e" font-family="monospace" font-size="14">scan.rs -&gt; accounted Model</text>
+<text x="966" y="272.5" fill="#2b8a3e" font-family="monospace" font-size="14">Worker-owned Parts joined</text>
+<text x="966" y="290.0" fill="#2b8a3e" font-family="monospace" font-size="14">model.rs: Entries / Directories</text>
+<text x="966" y="307.5" fill="#2b8a3e" font-family="monospace" font-size="14">Directory spans index children</text>
+<text x="966" y="325.0" fill="#2b8a3e" font-family="monospace" font-size="14">Allocated + apparent + shared totals</text>
+<rect x="1460" y="225" width="450" height="140" rx="12" stroke="#e67700" fill="#fff4e6" stroke-width="1.5"/>
+<text x="1476" y="255.0" fill="#e67700" font-family="monospace" font-size="14">browser.rs + display.rs</text>
+<text x="1476" y="272.5" fill="#e67700" font-family="monospace" font-size="14">Browse directories and file sizes</text>
+<text x="1476" y="290.0" fill="#e67700" font-family="monospace" font-size="14">Sort / navigate / info / help / toggles</text>
+<text x="1476" y="307.5" fill="#e67700" font-family="monospace" font-size="14">D/d: delete  |  r: rescan  |  q: quit</text>
+<text x="1476" y="325.0" fill="#e67700" font-family="monospace" font-size="14">Curses draws and reads keys</text>
+<polyline points="420,290 480,290" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="870,290 950,290" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="1370,290 1460,290" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="950" y="420" width="420" height="100" rx="12" stroke="#495057" fill="#f8f9fa" stroke-width="1.5"/>
+<text x="966" y="450.0" fill="#495057" font-family="monospace" font-size="14">--quit-after-scan</text>
+<text x="966" y="467.5" fill="#495057" font-family="monospace" font-size="14">Print root allocated / apparent bytes</text>
+<text x="966" y="485.0" fill="#495057" font-family="monospace" font-size="14">and item count as plain text; then exit</text>
+<polyline points="1160,365 1160,420" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<text x="70" y="441.0" fill="#343a40" font-family="monospace" font-size="16">os/linux/curses.rs: one terminal owner.</text>
+<text x="70" y="461.0" fill="#343a40" font-family="monospace" font-size="16">Signal / q / terminal error -&gt; cancellation.</text>
+<text x="70" y="481.0" fill="#343a40" font-family="monospace" font-size="16">Guards restore terminal state on exit.</text>
+<text x="1460" y="441.0" fill="#343a40" font-family="monospace" font-size="16">No tree import/export or format modules.</text>
+<text x="1460" y="461.0" fill="#343a40" font-family="monospace" font-size="16">No ncdu config or environment hooks.</text>
+<text x="1460" y="481.0" fill="#343a40" font-family="monospace" font-size="16">libc + Unicode crates; ncursesw via FFI.</text>
+<rect x="30" y="590" width="1940" height="600" rx="14" fill="white" stroke="#dee2e6"/>
+<text x="55" y="634.0" fill="#343a40" font-family="monospace" font-size="24">02  Scan scheduling, storage and accounting</text>
+<text x="55" y="659.0" fill="#868e96" font-family="monospace" font-size="14">scan.rs shares directory jobs and metadata jobs, so multiple workers can process a single wide directory.</text>
+<rect x="70" y="710" width="320" height="145" rx="12" stroke="#1971c2" fill="#e7f5ff" stroke-width="1.5"/>
+<text x="86" y="740.0" fill="#1971c2" font-family="monospace" font-size="14">Open + verify root descriptor</text>
+<text x="86" y="757.5" fill="#1971c2" font-family="monospace" font-size="14">-t 0: available CPU count</text>
+<text x="86" y="775.0" fill="#1971c2" font-family="monospace" font-size="14">-t N: explicit worker count</text>
+<text x="86" y="792.5" fill="#1971c2" font-family="monospace" font-size="14">Descriptor budget limits pool</text>
+<text x="86" y="810.0" fill="#1971c2" font-family="monospace" font-size="14">os/linux.rs</text>
+<rect x="440" y="710" width="320" height="145" rx="12" stroke="#1971c2" fill="#e7f5ff" stroke-width="1.5"/>
+<text x="456" y="740.0" fill="#1971c2" font-family="monospace" font-size="14">Shared bounded queue</text>
+<text x="456" y="757.5" fill="#1971c2" font-family="monospace" font-size="14">Mutex + Condvar</text>
+<text x="456" y="775.0" fill="#1971c2" font-family="monospace" font-size="14">Directory ID jobs</text>
+<text x="456" y="792.5" fill="#1971c2" font-family="monospace" font-size="14">Metadata batch jobs</text>
+<text x="456" y="810.0" fill="#1971c2" font-family="monospace" font-size="14">Track outstanding jobs</text>
+<rect x="810" y="710" width="320" height="145" rx="12" stroke="#2b8a3e" fill="#ebfbee" stroke-width="1.5"/>
+<text x="826" y="740.0" fill="#2b8a3e" font-family="monospace" font-size="14">A worker enumerates directory</text>
+<text x="826" y="757.5" fill="#2b8a3e" font-family="monospace" font-size="14">getdents64: 32 KiB buffer</text>
+<text x="826" y="775.0" fill="#2b8a3e" font-family="monospace" font-size="14">Up to 256 names per batch</text>
+<text x="826" y="792.5" fill="#2b8a3e" font-family="monospace" font-size="14">Shared parent descriptor</text>
+<text x="826" y="810.0" fill="#2b8a3e" font-family="monospace" font-size="14">Names remain raw basename bytes</text>
+<rect x="1180" y="710" width="340" height="145" rx="12" stroke="#2b8a3e" fill="#ebfbee" stroke-width="1.5"/>
+<text x="1196" y="740.0" fill="#2b8a3e" font-family="monospace" font-size="14">Any worker processes metadata</text>
+<text x="1196" y="757.5" fill="#2b8a3e" font-family="monospace" font-size="14">fstatat + exclude.rs rules</text>
+<text x="1196" y="775.0" fill="#2b8a3e" font-family="monospace" font-size="14">Filesystem / cache / kernel rules</text>
+<text x="1196" y="792.5" fill="#2b8a3e" font-family="monospace" font-size="14">Create child directory IDs</text>
+<text x="1196" y="810.0" fill="#2b8a3e" font-family="monospace" font-size="14">Ordinary subtotals at observation</text>
+<rect x="1570" y="710" width="340" height="145" rx="12" stroke="#2b8a3e" fill="#ebfbee" stroke-width="1.5"/>
+<text x="1586" y="740.0" fill="#2b8a3e" font-family="monospace" font-size="14">Worker appends to its own Part</text>
+<text x="1586" y="757.5" fill="#2b8a3e" font-family="monospace" font-size="14">storage.rs: fixed growth chunks</text>
+<text x="1586" y="775.0" fill="#2b8a3e" font-family="monospace" font-size="14">24-byte Entry; 4096-entry chunk</text>
+<text x="1586" y="792.5" fill="#2b8a3e" font-family="monospace" font-size="14">Raw names in 64 KiB chunks</text>
+<text x="1586" y="810.0" fill="#2b8a3e" font-family="monospace" font-size="14">Spans + hardlink / extended data</text>
+<polyline points="390,780 440,780" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="760,780 810,780" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="1130,780 1180,780" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="1520,780 1570,780" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="965,710 965,675 600,675 600,710" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<text x="660" y="696.0" fill="#868e96" font-family="monospace" font-size="14">publish metadata batches</text>
+<polyline points="1260,855 1260,900 590,900 590,855" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="6 5"/>
+<text x="740" y="925.0" fill="#868e96" font-family="monospace" font-size="14">publish discovered directories</text>
+<text x="70" y="986.0" fill="#343a40" font-family="monospace" font-size="16">When queue is full:</text>
+<text x="70" y="1006.0" fill="#343a40" font-family="monospace" font-size="16">Metadata runs locally. Directory</text>
+<text x="70" y="1026.0" fill="#343a40" font-family="monospace" font-size="16">overflow retains IDs only and is</text>
+<text x="70" y="1046.0" fill="#343a40" font-family="monospace" font-size="16">redistributed as capacity returns.</text>
+<text x="70" y="1066.0" fill="#343a40" font-family="monospace" font-size="16">No recursive worker call stack.</text>
+<rect x="810" y="1000" width="710" height="135" rx="12" stroke="#1971c2" fill="#e7f5ff" stroke-width="1.5"/>
+<text x="826" y="1030.0" fill="#1971c2" font-family="monospace" font-size="14">Join worker Parts without copying every file</text>
+<text x="826" y="1047.5" fill="#1971c2" font-family="monospace" font-size="14">model::finish_accounting()</text>
+<text x="826" y="1065.0" fill="#1971c2" font-family="monospace" font-size="14">1. Reverse directory reduction of ordinary totals + errors</text>
+<text x="826" y="1082.5" fill="#1971c2" font-family="monospace" font-size="14">2. Hardlinks grouped by (device, inode): once per ancestor</text>
+<text x="826" y="1100.0" fill="#1971c2" font-family="monospace" font-size="14">Includes directory own size; shared usage; saturating sums</text>
+<polyline points="1740,855 1740,1070 1520,1070" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<text x="1570" y="1130.0" fill="#2b8a3e" font-family="monospace" font-size="15">Fully accounted Model -&gt; session</text>
+<rect x="30" y="1220" width="1940" height="440" rx="14" fill="white" stroke="#dee2e6"/>
+<text x="55" y="1264.0" fill="#343a40" font-family="monospace" font-size="24">03  Real deletion and refresh</text>
+<text x="55" y="1289.0" fill="#868e96" font-family="monospace" font-size="14">browser.rs uses the observed model and verified directory descriptors. Deleted entries are removed from disk.</text>
+<rect x="70" y="1350" width="350" height="145" rx="12" stroke="#e67700" fill="#fff4e6" stroke-width="1.5"/>
+<text x="86" y="1380.0" fill="#e67700" font-family="monospace" font-size="14">Browser input</text>
+<text x="86" y="1397.5" fill="#e67700" font-family="monospace" font-size="14">D/d: selected file or directory</text>
+<text x="86" y="1415.0" fill="#e67700" font-family="monospace" font-size="14">Default confirmation: y / N</text>
+<text x="86" y="1432.5" fill="#e67700" font-family="monospace" font-size="14">Progress: q stops; errors: a/i/I</text>
+<text x="86" y="1450.0" fill="#e67700" font-family="monospace" font-size="14">r: rescan; -r disables deletion</text>
+<rect x="500" y="1330" width="410" height="110" rx="12" stroke="#2b8a3e" fill="#ebfbee" stroke-width="1.5"/>
+<text x="516" y="1360.0" fill="#2b8a3e" font-family="monospace" font-size="14">Refresh: verify current directory</text>
+<text x="516" y="1377.5" fill="#2b8a3e" font-family="monospace" font-size="14">scan::scan_descriptor -&gt; subtree Model</text>
+<text x="516" y="1395.0" fill="#2b8a3e" font-family="monospace" font-size="14">Progress + cancellation on UI thread</text>
+<rect x="500" y="1490" width="410" height="110" rx="12" stroke="#e67700" fill="#fff4e6" stroke-width="1.5"/>
+<text x="516" y="1520.0" fill="#e67700" font-family="monospace" font-size="14">delete.rs: postorder observed entries</text>
+<text x="516" y="1537.5" fill="#e67700" font-family="monospace" font-size="14">os/linux.rs: verify + unlinkat</text>
+<text x="516" y="1555.0" fill="#e67700" font-family="monospace" font-size="14">Symlink flag: unlink link, not target</text>
+<text x="516" y="1572.5" fill="#e67700" font-family="monospace" font-size="14">Track removed IDs / errors / abort</text>
+<rect x="1020" y="1380" width="410" height="130" rx="12" stroke="#2b8a3e" fill="#ebfbee" stroke-width="1.5"/>
+<text x="1036" y="1410.0" fill="#2b8a3e" font-family="monospace" font-size="14">mutation::rebuild</text>
+<text x="1036" y="1427.5" fill="#2b8a3e" font-family="monospace" font-size="14">Replace subtree OR omit removed IDs</text>
+<text x="1036" y="1445.0" fill="#2b8a3e" font-family="monospace" font-size="14">Update surviving hardlink counts</text>
+<text x="1036" y="1462.5" fill="#2b8a3e" font-family="monospace" font-size="14">Builder::finish recalculates totals</text>
+<rect x="1520" y="1380" width="390" height="130" rx="12" stroke="#e67700" fill="#fff4e6" stroke-width="1.5"/>
+<text x="1536" y="1410.0" fill="#e67700" font-family="monospace" font-size="14">Browser::install_model</text>
+<text x="1536" y="1427.5" fill="#e67700" font-family="monospace" font-size="14">Restore location by path</text>
+<text x="1536" y="1445.0" fill="#e67700" font-family="monospace" font-size="14">Restore selected name if it survives</text>
+<text x="1536" y="1462.5" fill="#e67700" font-family="monospace" font-size="14">Reload and draw updated sizes</text>
+<polyline points="420,1370 500,1370" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="420,1450 460,1450 460,1545 500,1545" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="910,1385 970,1385 970,1410 1020,1410" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="910,1545 970,1545 970,1470 1020,1470" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<polyline points="1430,1445 1520,1445" fill="none" stroke="#868e96" stroke-width="1.8" marker-end="url(#arrow)"/>
+<text x="1020" y="1564.0" fill="#343a40" font-family="monospace" font-size="14">Partial deletion: rebuild successful removals and report failures.</text>
+<text x="1020" y="1581.5" fill="#343a40" font-family="monospace" font-size="14">Refresh incomplete non-cancelled cases; r rescans on demand.</text>
+<text x="1020" y="1599.0" fill="#343a40" font-family="monospace" font-size="14">Optional b shell uses $SHELL; curses suspends and resumes.</text>
+<text x="40" y="1714.0" fill="#868e96" font-family="monospace" font-size="14">Verification: scanner/config/display/mutation Rust tests plus disposable CLI and PTY fixtures for D file/directory deletion.</text></svg>

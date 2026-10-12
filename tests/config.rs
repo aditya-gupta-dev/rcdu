@@ -29,7 +29,7 @@ impl Drop for Fixture {
 #[test]
 fn clustered_flags_defaults_config_suppression_and_bounds() {
     assert_eq!(Config::default().scan.threads, 0);
-    let args = ["-rr", "-t4", "--sort=mtime-asc", "-o-", "--", "-root"].map(Into::into);
+    let args = ["-rr", "-t4", "--sort=mtime-asc", "--", "-root"].map(Into::into);
     let config = cli::parse(&args, false).unwrap();
     assert_eq!(config.scan.threads, 4);
     assert_eq!(config.can_delete, Some(false));
@@ -38,15 +38,10 @@ fn clustered_flags_defaults_config_suppression_and_bounds() {
     assert!(!config.descending);
     assert_eq!(config.root.unwrap(), PathBuf::from("-root"));
     let mut config = Config::default();
-    config.config_bytes(b"# comment\n\n--threads=2\n@--threads=999\n@--future-option=x\n--graph-style eigth-block").unwrap();
+    config.config_bytes(b"# comment\n\n--threads=2\n@--threads=999\n@--future-option=x\n--graph-style eighth-block").unwrap();
     assert_eq!(config.scan.threads, 2);
     assert!(config.graph_style == Graph::Eighth);
-    for args in [
-        ["-t", "256"],
-        ["--export-block-size", "3"],
-        ["--compress-level", "21"],
-        ["--extended=yes", ""],
-    ] {
+    for args in [["-t", "256"], ["--extended=yes", ""]] {
         assert!(cli::parse(&args.map(Into::into), false).is_err());
     }
     assert!(config.config_bytes(&vec![b'x'; 4097]).is_err());
@@ -87,4 +82,22 @@ fn directory_patterns_and_cache_markers_preserve_own_size_rules() {
         2
     );
     assert_eq!(model.directories[0].totals.items, 5);
+}
+
+#[test]
+fn import_export_and_custom_delete_options_are_rejected() {
+    for option in [
+        "-f",
+        "-o",
+        "-O",
+        "-c",
+        "--compress",
+        "--no-compress",
+        "--compress-level",
+        "--export-block-size",
+        "--scan-report",
+        "--delete-command",
+    ] {
+        assert!(cli::parse(&[option.into()], false).is_err(), "{option}");
+    }
 }

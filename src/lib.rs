@@ -4,10 +4,11 @@ compile_error!("rcdu currently supports Linux only");
 
 pub mod browser;
 pub mod cli;
+pub mod delete;
 pub mod display;
 pub mod exclude;
-pub mod format;
 pub mod model;
+pub mod mutation;
 pub mod os;
 pub mod scan;
 pub mod session;

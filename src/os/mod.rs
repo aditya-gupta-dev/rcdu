@@ -9,6 +9,7 @@ pub struct Metadata {
     pub device: u64,
     pub inode: u64,
     pub links: u32,
+    pub was_symlink: bool,
     pub mode: u32,
     pub mtime: u64,
     pub uid: u32,

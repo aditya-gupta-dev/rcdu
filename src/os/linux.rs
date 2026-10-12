@@ -128,6 +128,7 @@ pub fn stat(parent: BorrowedFd<'_>, name: &CStr, follow: bool) -> io::Result<Met
         device: value.st_dev,
         inode: value.st_ino,
         links: (value.st_nlink as u64).min(0x7fff_ffff) as u32,
+        was_symlink: value.st_mode & libc::S_IFMT == libc::S_IFLNK,
         mode: value.st_mode,
         mtime: value.st_mtime.max(0) as u64,
         uid: value.st_uid,
@@ -348,4 +349,83 @@ impl DirectoryReader {
             ));
         }
     }
+}
+
+/// Open every component without following symlinks, verifying observed directory identities.
+pub fn open_model_directory(model: &crate::model::Model, id: u32) -> io::Result<OwnedFd> {
+    use crate::model::NO_PARENT;
+    let root = &model.directories[0];
+    let path = model.name(root.entry);
+    if !path.starts_with(b"/") {
+        return Err(invalid("filesystem actions require an absolute scan root"));
+    }
+    let mut fd = open_root(Path::new("/"))?;
+    for component in path
+        .split(|byte| *byte == b'/')
+        .filter(|part| !part.is_empty())
+    {
+        if component == b"." || component == b".." {
+            return Err(invalid("unsafe scan root component"));
+        }
+        fd = open_directory(fd.as_fd(), &name(component)?)?;
+    }
+    verify_directory(fd.as_fd(), root.device, root.inode)?;
+    let mut ancestors = Vec::new();
+    let mut directory = id;
+    while model.directories[directory as usize].parent != NO_PARENT {
+        ancestors.push(directory);
+        directory = model.directories[directory as usize].parent;
+    }
+    for id in ancestors.into_iter().rev() {
+        let directory = &model.directories[id as usize];
+        fd = open_directory(fd.as_fd(), &name(model.name(directory.entry))?)?;
+        verify_directory(fd.as_fd(), directory.device, directory.inode)?;
+    }
+    Ok(fd)
+}
+fn verify_directory(fd: BorrowedFd<'_>, device: u64, inode: u64) -> io::Result<()> {
+    let observed = stat_directory(fd)?;
+    if observed.device != device || observed.inode != inode {
+        return Err(invalid("directory replaced since scan"));
+    }
+    Ok(())
+}
+pub fn unlink(parent: BorrowedFd<'_>, name: &CStr, directory: bool) -> io::Result<()> {
+    // SAFETY: borrowed descriptor and terminated basename outlive unlinkat; no path traversal.
+    if unsafe {
+        libc::unlinkat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            if directory { libc::AT_REMOVEDIR } else { 0 },
+        )
+    } != 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+/// Child setup touches only async-signal-safe calls after fork.
+pub fn command_in_directory(command: &mut std::process::Command, directory: OwnedFd) {
+    use std::os::unix::process::CommandExt;
+    // SAFETY: the closure keeps its descriptor alive, fchdir is async-signal-safe, no allocation occurs.
+    unsafe {
+        command.pre_exec(move || {
+            if libc::fchdir(directory.as_raw_fd()) == 0 {
+                Ok(())
+            } else {
+                Err(io::Error::last_os_error())
+            }
+        });
+    }
+}
+pub fn terminal_stdio(command: &mut std::process::Command) -> io::Result<()> {
+    let tty = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")?;
+    command
+        .stdin(tty.try_clone()?)
+        .stdout(tty.try_clone()?)
+        .stderr(tty);
+    Ok(())
 }

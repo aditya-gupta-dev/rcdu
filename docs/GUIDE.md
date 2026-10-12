@@ -1,5 +1,7 @@
 # Porting ncdu 2.9.2 from Zig to Rust
 
+> Historical source analysis. For the current Rust application and completed `D` deletion behavior, see [README.md](../README.md), [the live scan design](redesign.md) and [the current architecture diagram](diagrams/rcdu-architecture.excalidraw.json). The older import/export and custom deletion plans below were superseded.
+
 This guide analyzes the checked-in implementation, not a hypothetical disk scanner. Read it together with [INSTRUCTIONS.md](INSTRUCTIONS.md), which gives the rewrite agent its execution requirements. The scope is a Linux Rust replacement with the existing CLI, terminal browser, exclusion rules, refresh/deletion behavior, JSON interoperability, and binary export/lazy browsing. No Rust rewrite is implemented by these documents.
 
 ## Evidence and performance objective

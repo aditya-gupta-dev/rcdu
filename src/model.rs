@@ -5,7 +5,9 @@ use std::io;
 use std::path::PathBuf;
 
 pub const NO_PARENT: u32 = u32::MAX;
-const BLOCK_MASK: u64 = (1 << 60) - 1;
+// One bit in the block field records the physical symlink type before -L follows a file.
+const SYMLINK_BIT: u64 = 1 << 59;
+const BLOCK_MASK: u64 = SYMLINK_BIT - 1;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -17,30 +19,6 @@ pub enum Kind {
     Excluded,
     OtherFs,
     KernelFs,
-}
-impl Kind {
-    pub fn wire(self) -> i64 {
-        match self {
-            Self::Error => -1,
-            Self::Excluded => -2,
-            Self::OtherFs => -3,
-            Self::KernelFs => -4,
-            value => value as i64,
-        }
-    }
-    pub fn from_wire(value: i64) -> Self {
-        match value {
-            0 => Self::Directory,
-            1 => Self::Regular,
-            2 => Self::Other,
-            3 => Self::Hardlink,
-            -1 => Self::Error,
-            -3 => Self::OtherFs,
-            -4 => Self::KernelFs,
-            value if value < 0 => Self::Excluded,
-            _ => Self::Other,
-        }
-    }
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EntryId(pub u32);
@@ -74,6 +52,9 @@ impl Entry {
     }
     pub fn blocks(self) -> u64 {
         self.packed & BLOCK_MASK
+    }
+    pub fn was_symlink(self) -> bool {
+        self.packed & SYMLINK_BIT != 0
     }
     pub fn allocated(self) -> u64 {
         self.blocks().saturating_mul(512)
@@ -170,7 +151,9 @@ impl Part {
         let id = EntryId((u32::from(worker) << 24) | self.entries.len() as u32);
         let name_offset = self.names.add(name)?;
         self.entries.push(Entry {
-            packed: (stat.blocks.min(BLOCK_MASK)) | ((kind as u64) << 60),
+            packed: stat.blocks.min(BLOCK_MASK)
+                | ((kind as u64) << 60)
+                | if stat.was_symlink { SYMLINK_BIT } else { 0 },
             apparent: stat.apparent,
             name: name_offset,
             parent,
@@ -220,6 +203,7 @@ impl Model {
         let mut stat = self.extended(id).unwrap_or_default();
         stat.blocks = entry.blocks();
         stat.apparent = entry.apparent;
+        stat.was_symlink = entry.was_symlink();
         if let Some(directory) = self.directory_id(id) {
             let directory = &self.directories[directory as usize];
             stat.device = directory.device;
@@ -265,6 +249,21 @@ impl Model {
             result.push(os::path(name));
         }
         result
+    }
+    pub fn directory_at_path(&self, path: &std::path::Path) -> Option<u32> {
+        let root = self.path(self.directories[0].entry);
+        let relative = path.strip_prefix(root).ok()?;
+        let mut directory = 0;
+        for component in os::bytes(relative)
+            .split(|byte| *byte == b'/')
+            .filter(|part| !part.is_empty())
+        {
+            directory = self
+                .children(directory)
+                .find(|id| self.name(*id) == component)
+                .and_then(|id| self.directory_id(id))?;
+        }
+        Some(directory)
     }
     pub fn len(&self) -> usize {
         self.parts.iter().map(|part| part.entries.len()).sum()
@@ -367,7 +366,7 @@ impl Iterator for Children<'_> {
     }
 }
 
-/// Imports and mutation rebuilds share the same ordinary accounting contract as live batches.
+/// Mutation rebuilds share the same ordinary accounting contract as live batches.
 pub struct Builder {
     model: Model,
 }

@@ -4,12 +4,11 @@ version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT AND Zlib"
-description = "Linux disk usage browser with ncdu-compatible imports and exports"
+description = "Linux disk usage scanner and interactive browser"
 repository = "https://github.com/aditya-gupta-dev/rcdu"
 
 [dependencies]
 libc = "0.2"
-zstd = { version = "0.13", default-features = false }
 unicode-segmentation = "1"
 unicode-width = { version = "0.2", default-features = false }
 

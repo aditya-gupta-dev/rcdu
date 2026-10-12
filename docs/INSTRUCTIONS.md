@@ -1,5 +1,7 @@
 # Instructions for the Rust rewrite agent
 
+> Historical rewrite requirements, superseded by the live filesystem scope. Current deletion behavior is documented in [README.md](../README.md), [the live scan design](redesign.md) and [the architecture diagram](diagrams/rcdu-architecture.excalidraw.json). The older import/export and custom deletion requirements below are not current tasks.
+
 Read [GUIDE.md](GUIDE.md) before implementation. It analyzes all 17 Zig files and all 300 declared functions, the accounting semantics, interoperability, build settings, known limitations, and proposed Rust design. These instructions define how to execute the rewrite; they do not certify that the performance goal has already been achieved.
 
 ## Objective and scope
