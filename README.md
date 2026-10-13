@@ -14,8 +14,6 @@ During a directory deletion, rcdu shows progress and `q` stops the remaining wor
 
 The app has no saved-tree import/export, JSON/zstd/EX1 formats, ncdu configuration loading, or ncdu environment hooks. Its optional configuration lives at `/etc/rcdu.conf` and `$XDG_CONFIG_HOME/rcdu/config` (default `~/.config/rcdu/config`); command-line arguments override it. `--ignore-config` skips configuration files. `--quit-after-scan` prints plain-text root sizes and exits.
 
-[Editable Excalidraw JSON](docs/diagrams/rcdu-architecture.excalidraw.json) and [SVG preview](docs/diagrams/rcdu-architecture.svg) describe the current code. The [diagram before cleanup](docs/diagrams/rcdu-before-cleanup.excalidraw.json) preserves the original architecture requested before removing compatibility code. Open either JSON file in Excalidraw using **Open**.
-
 ```sh
 scripts/cargo test
 scripts/cargo build
@@ -36,5 +34,17 @@ The following **historical** scan comparison predates the current cleanup and do
 | 12 | 0.164 s | 8,760 KiB | 0.045 s | 9,476 KiB |
 
 Times and peak RSS values are medians; RSS comes from Linux `wait4` and is reported in KiB. The [raw wide-fixture observations](benchmarks/results/restart-wide-initial.json) contain the commands, build details, ranges and individual runs. [Broad-fixture results](benchmarks/results/rust-model-valid.json) and [later Rust-only large-fixture experiments](benchmarks/results/restart-balanced-large.json) are also available. These synthetic workloads do not establish performance on a real user tree.
+
+## Architecture diagrams
+
+Current architecture ([editable Excalidraw JSON](docs/diagrams/rcdu-architecture.excalidraw.json)):
+
+![Current rcdu architecture](docs/diagrams/rcdu-architecture.svg)
+
+Architecture before compatibility cleanup ([editable Excalidraw JSON](docs/diagrams/rcdu-before-cleanup.excalidraw.json)):
+
+![Historical rcdu architecture before compatibility cleanup](docs/diagrams/rcdu-before-cleanup.svg)
+
+Open either JSON file in Excalidraw using **Open**.
 
 Every Cargo invocation uses `scripts/cargo` to restrict build/test concurrency to half the available CPU budget; scan concurrency is controlled independently. See [the scan design](docs/redesign.md) and [measurement notes](docs/measurement.md). Earlier compatibility documents, reference source and benchmark results are historical; they do not describe the current feature set. Required source and license notices remain in [credits](docs/credits.md).
