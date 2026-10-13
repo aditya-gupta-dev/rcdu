@@ -2,6 +2,16 @@
 
 A Linux disk usage scanner and interactive ncurses browser. It scans the live filesystem, calculates allocated and apparent sizes, and lets you navigate, refresh and delete files or directories. Scanning uses available CPUs by default; `-t 1` selects a single worker.
 
+After the first crates.io release, install with Cargo:
+
+```sh
+cargo install rcdu 
+# or 
+cargo install rcdu --locked
+```
+
+To build from this checkout:
+
 ```sh
 scripts/cargo build --release
 target/release/rcdu /path/to/directory
