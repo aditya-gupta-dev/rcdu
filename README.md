@@ -23,4 +23,18 @@ scripts/integration
 scripts/cargo clippy --all-targets -- -D warnings
 ```
 
+## Recorded benchmark results
+
+The following **historical** scan comparison predates the current cleanup and does not measure the current code. It scanned a synthetic directory of 100,000 empty files on an AMD Ryzen 5 4600H with NVMe storage and a warm filesystem cache. Both programs used release builds, the same explicit worker count and `--ignore-config -0 --quit-after-scan`; five measured runs per setting followed an unmeasured warmup. All recorded runs exited successfully and produced the same normalized scan result.
+
+| Workers | ncdu 2.9.2 median time | ncdu peak RSS | rcdu 0.2.0 median time | rcdu peak RSS |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.286 s | 8,348 KiB | 0.161 s | 7,144 KiB |
+| 2 | 0.302 s | 8,752 KiB | 0.088 s | 7,188 KiB |
+| 4 | 0.161 s | 8,704 KiB | 0.048 s | 7,572 KiB |
+| 6 | 0.164 s | 8,752 KiB | 0.040 s | 7,588 KiB |
+| 12 | 0.164 s | 8,760 KiB | 0.045 s | 9,476 KiB |
+
+Times and peak RSS values are medians; RSS comes from Linux `wait4` and is reported in KiB. The [raw wide-fixture observations](benchmarks/results/restart-wide-initial.json) contain the commands, build details, ranges and individual runs. [Broad-fixture results](benchmarks/results/rust-model-valid.json) and [later Rust-only large-fixture experiments](benchmarks/results/restart-balanced-large.json) are also available. These synthetic workloads do not establish performance on a real user tree.
+
 Every Cargo invocation uses `scripts/cargo` to restrict build/test concurrency to half the available CPU budget; scan concurrency is controlled independently. See [the scan design](docs/redesign.md) and [measurement notes](docs/measurement.md). Earlier compatibility documents, reference source and benchmark results are historical; they do not describe the current feature set. Required source and license notices remain in [credits](docs/credits.md).
