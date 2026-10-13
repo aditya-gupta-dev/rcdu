@@ -1,6 +1,6 @@
 # Credits and licensing
 
-rcdu's Rust implementation is MIT licensed. The ncdu 2.9.2 source, manual and original MIT notice by Yorhel are preserved in `reference/ncdu-2.9.2/` and `LICENSE`.
+rcdu's Rust implementation is MIT licensed. The repository's [LICENSE](../LICENSE) retains Yorhel's copyright notice for ncdu-derived work. The ncdu Zig source and manual are no longer included in this repository.
 
 The Rust natural comparator is an altered implementation following ncdu's port of Martin Pool's strnatcmp, not the original C implementation. Copyright (C) 2000, 2004 Martin Pool. The full upstream notice is retained in `LICENSES/NaturalSort.txt`; source: https://github.com/sourcefrog/natsort/.
 

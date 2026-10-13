@@ -9,4 +9,4 @@ The scanner queues both directory IDs and metadata batches. Workers append their
 
 The session chooses interactive browsing or a plain-text root-size result. `D`/`d` starts deletion; default confirmation requires `y`, and read-only configuration blocks it. The browser shows progress, accepts `q` to stop, and offers abort/ignore choices on errors. The walker removes observed entries through verified directory descriptors and `unlinkat`, without following symlinks or traversing child names created after scanning. Mutation rebuilding removes successfully deleted entries, adjusts hardlinks and recalculates totals. An incomplete deletion is reported; refresh replaces the current subtree with a new scan.
 
-Historical reference source, licensing and older benchmark results remain outside the runtime path.
+Historical benchmark results and required license notices remain outside the runtime path.

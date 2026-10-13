@@ -14,4 +14,4 @@ GNU time is not installed. `scripts/measure.c` uses Linux `wait4` child rusage a
 
 The first Python direct-child measurement was rejected: every child inherited a 43–50 MiB pre-exec high-water mark from the driver, concealing scanner memory. Its complete observations remain in `rust-initial-model.json`, marked invalid. Never use its RSS for a performance claim. `rust-model-valid.json` uses the native monitor instead.
 
-The installed Zig package is ncdu 2.9.2. Exact distribution build flags are unknown; Rust initially uses ordinary Cargo release with a portable target. A fully controlled source-build comparison remains a separate gate. No cache drops, root commands, remounting or user-tree changes are performed. Cache state is warm, not controlled cold.
+The historical ncdu comparison used version 2.9.2. Exact distribution build flags are unknown; Rust initially used ordinary Cargo release with a portable target. It does not establish a fully controlled source-build comparison. No cache drops, root commands, remounting or user-tree changes were performed. Cache state was warm, not controlled cold.

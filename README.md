@@ -47,4 +47,4 @@ Architecture before compatibility cleanup ([editable Excalidraw JSON](docs/diagr
 
 Open either JSON file in Excalidraw using **Open**.
 
-Every Cargo invocation uses `scripts/cargo` to restrict build/test concurrency to half the available CPU budget; scan concurrency is controlled independently. See [the scan design](docs/redesign.md) and [measurement notes](docs/measurement.md). Earlier compatibility documents, reference source and benchmark results are historical; they do not describe the current feature set. Required source and license notices remain in [credits](docs/credits.md).
+Every Cargo invocation uses `scripts/cargo` to restrict build/test concurrency to half the available CPU budget; scan concurrency is controlled independently. See [the scan design](docs/redesign.md) and [measurement notes](docs/measurement.md). The linked benchmark results and before-cleanup diagram are historical; they do not describe the current feature set. Required source and license notices remain in [credits](docs/credits.md).

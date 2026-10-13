@@ -1,6 +1,6 @@
 # Live filesystem scan design (2026-10-08)
 
-The user requested a fresh implementation rather than a structural port: ncdu keys and curses layout, automatic use of available CPUs, efficient memory and measured speed, with progress committed to Git. This supersedes the first implementation's one-worker default and ANSI terminal adapter. Existing work was checkpointed and pushed to an archive branch before removing its Rust source, examples and tests from main. Original requirements, source/licenses, build budget and measurement tools remain references.
+The user requested a fresh implementation rather than a structural port: ncdu keys and curses layout, automatic use of available CPUs, efficient memory and measured speed, with progress committed to Git. This supersedes the first implementation's one-worker default and ANSI terminal adapter. Existing work was checkpointed and pushed to an archive branch before removing its Rust source, examples and tests from main. Historical measurements and required license notices remain in this repository.
 
 ## Pipeline
 
